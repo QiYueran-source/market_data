@@ -1,7 +1,10 @@
+# 基础库
 pandas
 numpy
+dotenv
+requests
+
+# 各类API库
 tushare
 akshare
-requests
 jqdatasdk
-dotenv
