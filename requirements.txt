@@ -3,6 +3,7 @@ pandas
 numpy
 dotenv
 requests
+pathlib
 
 # 各类API库
 tushare
