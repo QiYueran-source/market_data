@@ -20,7 +20,7 @@ sudo apt install sqlite3 # 安装sqlite3
 
 - 创建虚拟环境
 ```bash
-uv venv .mktenv --python 3.13
+uv venv .mktenv --python 3.11 # 3.11版本更稳定 
 source .mktenv/bin/activate
 ```
 
