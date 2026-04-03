@@ -4,8 +4,13 @@ schema工具
 Field: 字段信息类，用于schema中定义每一个字段  
 TableSchema: 表信息类，用于定义表，作为provider，writer和db模块的桥梁。  
 '''
+# 标准库
 from dataclasses import dataclass
 from typing import Optional, Any, List, NamedTuple, Literal
+
+# 异常
+from exceptions.schema_error import FieldNotFoundError
+
 class Field(NamedTuple):
     '''
     字段信息类，用于schema中定义每一个字段
@@ -56,12 +61,12 @@ class TableSchema:
 
     @property
     def primary_key(self) -> List[str]:
-        return [field.get('name') for field in self.schema if field.get('pk', False) and field.get('name')]
+        return [field.name for field in self.schema if field.pk]
 
     def get_field_by_name(self, name:str) -> Field:
-        field = next((field for field in self.schema if field.get('name') == name), None)
+        field = next((field for field in self.schema if field.name == name), None)
         if field is None:
-            raise ValueError(f'字段{name}不存在')
+            raise FieldNotFoundError(f'字段{name}不存在，请检查表结构')
         return field
 
 __all__ = ['Field', 'col', 'TableSchema']

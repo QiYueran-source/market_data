@@ -26,23 +26,35 @@ from db import DB_SCHEMAS
 
 def _get_ddl_by_schema(schema: TableSchema) -> str:
     '''
-    通过TableSchema生成一个DDL语句
-
-    参数:
-    - schema: TableSchema，表信息
-
-    返回:
-    - DDL语句
+    通过 TableSchema 生成建表 DDL。  
+    根据 primary_key（由 Field.pk 推导）；无 pk 则无 PRIMARY KEY。   
+    SQLite 对 PRIMARY KEY 会自动维护唯一索引。  
     '''
-    
-    ddl = f'''
-        CREATE TABLE IF NOT EXISTS 
-        {schema.table_name} 
-        (
-            {", ".join([f"{field.name} {field.sql_type}" for field in schema.schema])}
-        )
-    '''
-    return ddl
+    # 获取主键
+    pk = schema.primary_key
+    pk_set = set(pk)
+
+    if len(pk) == 1:
+        pk_name = pk[0]
+        col_defs = []
+        for field in schema.schema:
+            if field.name == pk_name:
+                col_defs.append(f"{field.name} {field.sql_type} PRIMARY KEY")
+            else:
+                col_defs.append(f"{field.name} {field.sql_type}")
+        body = ", ".join(col_defs)
+    elif len(pk) > 1:
+        col_defs = []
+        for field in schema.schema:
+            if field.name in pk_set:
+                col_defs.append(f"{field.name} {field.sql_type} NOT NULL")
+            else:
+                col_defs.append(f"{field.name} {field.sql_type}")
+        body = ", ".join(col_defs) + f", PRIMARY KEY ({', '.join(pk)})"
+    else:
+        body = ", ".join(f"{f.name} {f.sql_type}" for f in schema.schema)
+
+    return f"CREATE TABLE IF NOT EXISTS {schema.table_name} ({body})"
 
 def build_table_by_schema(schema: TableSchema, conn: sqlite3.Connection):
     '''
