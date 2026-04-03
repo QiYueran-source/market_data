@@ -22,3 +22,6 @@ __pycache__
 
 # 测试脚本
 test_scripts.py
+
+# 数据库文件
+db/*.db
