@@ -3,8 +3,8 @@ schema工具
 
 Field: 字段信息类，用于schema中定义每一个字段
 '''
-
-from typing import TypedDict, Optional, Any, Type
+from dataclasses import dataclass
+from typing import TypedDict, Optional, Any, List, Tuple
 
 class Field(TypedDict):
     '''
@@ -43,4 +43,25 @@ def col(
         pk=pk
     )
 
-__all__ = ['Field', 'col']
+@dataclass(frozen=True)
+class TableSchema:
+    '''
+    表信息类，用于定义表，作为provider，writer和db模块的桥梁。
+    
+    变量:
+    - table_name: 表名
+    - database_name: 数据库名
+    - schema: List[Field]，字段列表
+    - primary_key: List[str]，主键列表，用于unique调用
+    - comment: str，表注释
+    '''
+    database_name: str
+    table_name: str
+    schema: List[Field]
+    comment: str = "" 
+
+    @property
+    def primary_key(self) -> List[str]:
+        return [field.get('name') for field in self.schema if field.get('pk', False) and field.get('name')]
+
+__all__ = ['Field', 'col', 'TableSchema']
