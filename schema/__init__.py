@@ -1,8 +1,8 @@
 '''
 schema库
-- calendar: 交易日历库
-  - _akshare: 用akshare获取交易日历数据
-'''
-import calendar
+- trade_calendar: 交易日历库
 
-__all__ = ['calendar']
+'''
+import schema.trade_calendar as trade_calendar
+
+__all__ = ['trade_calendar']
