@@ -1,3 +1,7 @@
 pandas
 numpy
 tushare
+akshare
+requests
+jqdatasdk
+dotenv
