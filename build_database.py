@@ -19,8 +19,8 @@ from utils import TableSchema
 from utils import get_logger
 logger = get_logger(name='build_database')
 
-# 常量
-DB_DIR = 'db' # 数据库目录
+# 引入常量
+from db import DB_DIR
 from db import DB_SCHEMAS
 
 

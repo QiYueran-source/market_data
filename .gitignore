@@ -25,3 +25,6 @@ test_scripts.py
 
 # 数据库文件
 db/*.db
+
+# 脚本
+_provide_akshare_calendar.py
