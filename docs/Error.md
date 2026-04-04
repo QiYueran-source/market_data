@@ -32,6 +32,21 @@ ValidError是校验相关的错误基类，
 | PrimaryKeyDuplicateError | 校验时，在 ``primary_key_required`` 为 True 的前提下，df 中主键组合有重复行。 | `validater.valid()`。 | 暂无 | 暂无 |
 | PrimaryKeyEmptyError | 校验时，在 ``primary_key_required`` 为 True 的前提下，df 中主键列存在空值。 | `validater.valid()`。 | 暂无 | 暂无 |
 
-## APIError 
+### APIError 
 API错误的基类，这是最重要的一个错误类型，
-需要根据API的返回码，定义具体的错误类型。  
+需要根据API的返回码，定义具体的错误类型。 
+
+#### 通用错误
+| 状态码(requests的状态码，如200) | 消息码（消息中可能携带码，用于区分） | 错误类型 | 定义 | 抛出位置 | 捕获位置 | 处理 |
+| -------- | ---- | -------- | -------- | ---- |
+| 404 | NotFoundError | 未找到错误，这是一个通用的错误，通常表示API地址错误或者被移除了 | 所有fetch()函数，用于日志记录 | 暂无 | 兜底处理 |
+
+
+#### StockApiError
+StockApiError是stock_api的错误基类，
+所有stock_api的错误都继承自StockApiError。
+
+| API/URL | 状态码(requests的状态码，如200) | 消息码（消息中可能携带码，用于区分） | 错误类型 | 定义 | 抛出位置 | 捕获位置 | 处理 |
+| ----- | -------- | ---- | ---- | -------- | -------- | ---- |
+| https://www.stockapi.com.cn/v1/base/tradeDate 交易日历 | 200 | 88886 | StockApiQuotaExhaustedError | 请求次数超过限额 | 暂无 | 暂无 | 暂无 |
+
