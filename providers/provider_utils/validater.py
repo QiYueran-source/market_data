@@ -78,7 +78,7 @@ def _is_pk_empty(df: pd.DataFrame, schema: TableSchema) -> bool:
     '''
     return not df[schema.primary_key].isna().any().any()
 
-def valid(df: pd.DataFrame, schema: TableSchema) -> bool:
+def validate(df: pd.DataFrame, schema: TableSchema) -> bool:
     '''
     校验 df 和 schema 是否一致
 
