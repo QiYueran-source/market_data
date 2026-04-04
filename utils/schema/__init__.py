@@ -9,7 +9,14 @@ from dataclasses import dataclass
 from typing import Optional, Any, List, NamedTuple, Literal
 
 # 异常
-from exceptions.schema_error import FieldNotFoundError
+from exceptions.schema_error import (
+    FieldNotFoundError,
+    PrimaryKeyMissingException,
+)
+
+# 日志
+from utils import get_logger
+logger = get_logger('table_schema')
 
 class Field(NamedTuple):
     '''
@@ -54,18 +61,33 @@ class TableSchema:
     - database_name: 数据库名
     - schema: List[Field]，字段列表
     - primary_key: List[str]，主键列表，用于unique调用
+    - primary_key_required: 主键是否必须
     '''
     database_name: Literal['trade_calendar'] 
     table_name: str
     schema: List[Field]
+    primary_key_required: bool = True
+
+    # 校验
+    def __post_init__(self):
+        pk = self.primary_key
+        if not pk:
+            if self.primary_key_required:
+                logger.error(f'需要主键，primary_key_required:{self.primary_key_required}，但{self.table_name}的表结构中没有主键')
+                raise PrimaryKeyMissingException(f'需要主键，primary_key_required:{self.primary_key_required}，但{self.table_name}的表结构中没有主键')
+            else:
+                logger.warning(f'表{self.table_name}没有主键，primary_key_required:{self.primary_key_required}，但建议添加主键，以保证数据唯一性')
+        
 
     @property
     def primary_key(self) -> List[str]:
-        return [field.name for field in self.schema if field.pk]
+        primary_key = [field.name for field in self.schema if field.pk]
+        return primary_key
 
     def get_field_by_name(self, name:str) -> Field:
         field = next((field for field in self.schema if field.name == name), None)
         if field is None:
+            logger.error(f'字段{name}不存在，请检查表结构')
             raise FieldNotFoundError(f'字段{name}不存在，请检查表结构')
         return field
 

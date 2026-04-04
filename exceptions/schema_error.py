@@ -7,3 +7,5 @@ class SchemaError(Exception):
 class FieldNotFoundError(SchemaError):
     '''字段不存在错误'''
     
+class PrimaryKeyMissingException(SchemaError):
+    '''主键缺失异常'''
