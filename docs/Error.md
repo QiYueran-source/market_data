@@ -46,7 +46,14 @@ API错误的基类，这是最重要的一个错误类型，
 StockApiError是stock_api的错误基类，
 所有stock_api的错误都继承自StockApiError。
 
-| API/URL | 状态码(requests的状态码，如200) | 消息码（消息中可能携带码，用于区分） | 错误类型 | 定义 | 抛出位置 | 捕获位置 | 处理 |
+**https://www.stockapi.com.cn/v1/base/tradeDate 交易日历**  
+
+| 状态码(requests的状态码，如200) | 消息码（消息中可能携带码，用于区分） | 错误类型 | 定义 | 抛出位置 | 捕获位置 | 处理 |
 | ----- | -------- | ---- | ---- | -------- | -------- | ---- |
-| https://www.stockapi.com.cn/v1/base/tradeDate 交易日历 | 200 | 88886 | StockApiQuotaExhaustedError | 请求次数超过限额 | 暂无 | 暂无 | 暂无 |
+| 200 | 88886 | StockApiQuotaExhaustedError | 请求次数超过限额 | 暂无 | 暂无 | 暂无 |
+| 200 | 其他 | UnexpectedApiCodeError | 返回了意外的API码 | 暂无 | 暂无 | 暂无 |
+| 200 | 0 | DataEmptyError | 数据为空 | 暂无 | 暂无 | 暂无 |
+| 200 | 0 | WrongDataError | 数据格式错误，不是字典/没有所需字段 | 暂无 | 暂无 | 暂无 |
+| 200 | 0 | WrongIsOpenRangeError | is_open范围错误，不为0或1 | 暂无 | 暂无 | 暂无 |
+
 
