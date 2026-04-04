@@ -9,3 +9,6 @@ class FieldNotFoundError(SchemaError):
     
 class PrimaryKeyMissingException(SchemaError):
     '''主键缺失异常'''
+
+class DuplicateColumnsError(SchemaError):
+    '''重复列错误'''

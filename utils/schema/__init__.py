@@ -12,6 +12,7 @@ from typing import Optional, Any, List, NamedTuple, Literal
 from exceptions.schema_error import (
     FieldNotFoundError,
     PrimaryKeyMissingException,
+    DuplicateColumnsError,
 )
 
 # 日志
@@ -70,6 +71,8 @@ class TableSchema:
 
     # 校验
     def __post_init__(self):
+        # 校验
+        # 1.校验主键
         pk = self.primary_key
         if not pk:
             if self.primary_key_required:
@@ -77,7 +80,10 @@ class TableSchema:
                 raise PrimaryKeyMissingException(f'需要主键，primary_key_required:{self.primary_key_required}，但{self.table_name}的表结构中没有主键')
             else:
                 logger.warning(f'表{self.table_name}没有主键，primary_key_required:{self.primary_key_required}，但建议添加主键，以保证数据唯一性')
-        
+        # 2.校验重复列
+        if len(self.cols) != len(set(self.cols)):
+            logger.error(f'表{self.table_name}有重复列，请检查表结构')
+            raise DuplicateColumnsError(f'表{self.table_name}有重复列，请检查表结构')
 
     @property
     def primary_key(self) -> List[str]:
@@ -90,5 +96,9 @@ class TableSchema:
             logger.error(f'字段{name}不存在，请检查表结构')
             raise FieldNotFoundError(f'字段{name}不存在，请检查表结构')
         return field
+
+    @property
+    def cols(self) -> List[str]:
+        return [field.name for field in self.schema]
 
 __all__ = ['Field', 'col', 'TableSchema']

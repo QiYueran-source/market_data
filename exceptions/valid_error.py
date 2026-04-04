@@ -18,3 +18,5 @@ class PrimaryKeyDuplicateError(ValidError):
 
 class PrimaryKeyEmptyError(ValidError):
     '''主键为空错误'''
+
+    
