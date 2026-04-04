@@ -14,6 +14,9 @@ API 限流工具
 限流装饰器：  
 limit(source:Literal['akshare', 'mairui', 'tushare', 'stock_api'])  
 装饰provide方法，使其在调用时进行限流。  
+
+日志：
+本工具的日志级别为DEBUG，用于记录限流器的等待时间。
 '''
 from __future__ import annotations
 
@@ -22,6 +25,10 @@ import time
 from collections import deque
 from typing import Literal, Callable, Any
 from functools import wraps
+
+# 日志
+from utils import get_logger
+logger = get_logger('api_limiter')
 
 
 class SlidingWindowLimiter:
@@ -40,10 +47,6 @@ class SlidingWindowLimiter:
         max_requests: int,
         light_offset: float = 0.1
     ) -> None:
-        if window_sec <= 0:
-            raise ValueError('window_sec 必须大于 0')
-        if max_requests < 1:
-            raise ValueError('max_requests 必须至少为 1')
         self._window_sec = float(window_sec)
         self._max_requests = int(max_requests)
         self._times: deque[float] = deque()
@@ -77,6 +80,7 @@ class SlidingWindowLimiter:
                 wait = self._times[0] + self._window_sec - now
 
             if wait > 0:
+                logger.debug(f'开始等待，时间: {wait}')
                 time.sleep(wait + self._light_offset)
 
     def __repr__(self) -> str:
@@ -86,6 +90,7 @@ class SlidingWindowLimiter:
         )
 
 # 全局限流器
+TEST_LIMITER = SlidingWindowLimiter(window_sec=30, max_requests=60)
 TUSHARE_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
 MAIRUI_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
 AKSHARE_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
@@ -96,10 +101,11 @@ SOURCE_LIMITERS_MAP = {
     'mairui': MAIRUI_LIMITER,
     'tushare': TUSHARE_LIMITER,
     'stock_api': STOCK_API_LIMITER,
+    'test': TEST_LIMITER,
 }
 
 # 限流装饰器
-def limit(source:Literal['akshare', 'mairui', 'tushare', 'stock_api']) -> Callable:
+def limit(source:Literal['akshare', 'mairui', 'tushare', 'stock_api', 'test']) -> Callable:
     def decorater(func:Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:

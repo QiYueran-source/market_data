@@ -3,12 +3,19 @@
 
 提供重试装饰器，用于装饰需要重试的函数。
 需要提供捕获的异常类型，以及尝试总次数与间隔。
+
+日志：
+本工具的日志级别为DEBUG，用于记录重试的次数和间隔。
 '''
 from __future__ import annotations
 
 import time
 from functools import wraps
 from typing import Any, Callable, Tuple, Type
+
+# 日志
+from utils import get_logger
+logger = get_logger('retry')
 
 def retry(
     retry_exceptions: Tuple[Type[Exception], ...] = (Exception,),
@@ -33,7 +40,9 @@ def retry(
                 try:
                     return func(*args, **kwargs)
                 except retry_exceptions:
+                    logger.debug(f'重试次数: {attempt}')
                     if attempt == max_attempts - 1:
+                        logger.debug(f'达到最大重试次数：{max_attempts}，抛出异常')
                         raise
                     time.sleep(retry_delay)
 
