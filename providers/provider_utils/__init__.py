@@ -15,11 +15,8 @@ def get_akshare_data():
     return 'akshare data'
 ```
 
-- validate: 校验工具   
-用于校验处理后得到的 df 和 TableSchema 是否一致（子集）  
 '''
 from providers.provider_utils.api_limiter import limit
 from providers.provider_utils.retry import retry
-from providers.provider_utils.validater import validate
 
-__all__ = ['limit', 'retry', 'validate']
+__all__ = ['limit', 'retry']

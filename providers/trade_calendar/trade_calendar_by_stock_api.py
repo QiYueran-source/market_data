@@ -11,7 +11,10 @@ import sqlite3
 import json
 import datetime as dt
 import requests
-from providers.provider_utils import *
+
+# 工具
+from providers.provider_utils import limit, retry
+from schema.schema_utils import validate
 
 # 表结构
 from schema.trade_calendar import STOCKAPI_TRADE_CALENDAR_SCHEMA
@@ -19,6 +22,9 @@ from schema.trade_calendar import STOCKAPI_TRADE_CALENDAR_SCHEMA
 # 数据库常量
 from db import DB_DIR
 from schema.trade_calendar import AKSHARE_TRADE_CALENDAR_SCHEMA
+
+# api
+from db.api.trade_calendar import stock_api_trade_calendar
 
 # 日志
 from utils import get_logger
@@ -45,12 +51,14 @@ _REQUEST_TIMEOUT_SEC = 30
 
 @retry((UnexpectedApiCodeError,DataEmptyError,WrongDataError,WrongIsOpenRangeError))
 @limit('stock_api_trade_calendar')
-def fetch() -> int:
+def fetch(date: dt.date | str) -> int:
     '''用requests获取stock_api的交易日历数据'''
+    if isinstance(date, str):
+        date = dt.datetime.strptime(date, '%Y-%m-%d').date()
     try:
         response = requests.get(
             STOCKAPI_TRADE_CALENDAR_URL,
-            params = {'tradeDate': dt.date.today().strftime('%Y-%m-%d')},
+            params = {'tradeDate': date.strftime('%Y-%m-%d')},
             timeout=_REQUEST_TIMEOUT_SEC,
         )
     except requests.RequestException as e:
@@ -106,8 +114,7 @@ def _handle_error():
         WHERE calendar_date = '{dt.date.today()}'
     '''
     try:
-        with sqlite3.connect(os.path.join(DB_DIR, db_name)) as conn:
-            df = pd.read_sql_query(query, conn)
+        df = stock_api_trade_calendar.get_trade_calendar_by_date(dt.date.today())
     except Exception as e:
         raise SQLiteError(f'sqlite兜底查询失败: {e}') from e
     if df.empty:
@@ -116,15 +123,15 @@ def _handle_error():
     return df
 
 
-def fetch_and_clean()->pd.DataFrame:
+def fetch_and_clean(date: dt.date | str)->pd.DataFrame:
     '''
     获取fetch，处理异常，整理为TableSchema格式
     '''
     # 处理错误
     try:
-        is_open = fetch()
+        is_open = fetch(date)
         df = pd.DataFrame({
-            'calendar_date': [dt.date.today()],
+            'calendar_date': [date],
             'is_open': [is_open]
         })
     except Exception as e:
@@ -150,12 +157,12 @@ def fetch_and_clean()->pd.DataFrame:
     return df
 
 
-def provide():
+def provide(date: dt.date | str = dt.date.today())->pd.DataFrame:
     '''
     提供给storage层的数据  
     交易日历为单条记录，用clean获取一次
     '''
-    df = fetch_and_clean()
+    df = fetch_and_clean(date)
     return df
     
     

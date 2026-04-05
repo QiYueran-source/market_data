@@ -2,7 +2,7 @@
 
 ## 约定
 
-- 异常类定义在 `exceptions/` 下，按领域分子模块（`schema_error`、`valid_error`、`api_error`）。
+- 异常类定义在 `exceptions/` 下，按领域分子模块（`schema_error`、`valid_error`、`api_error`、`buffer_error`）。
 - **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，`fetch_and_clean` 在捕获异常时会 `logger.error`。
 - **文档与代码**：类名、继承关系以 `exceptions/**/*.py` 为准；本页表格中的「抛出位置」指向当前已实现调用链。
 
@@ -37,7 +37,7 @@ Exception
 
 ## ValidError
 
-`ValidError` 为 DataFrame 与 `TableSchema` 校验基类，定义见 `exceptions/valid_error.py`。校验入口为 **`providers/provider_utils/validater.py` → `validate(df, schema)`**（非 `valid()`）。
+`ValidError` 为 DataFrame 与 `TableSchema` 校验基类，定义见 `exceptions/valid_error.py`。校验入口为 **`schema/schema_utils/validator.py` → `validate(df, schema)`**；推荐 `from schema.schema_utils import validate`（非 `valid()`）。
 
 | 异常类 | 含义 | 抛出位置 |
 | ------ | ---- | -------- |
@@ -48,6 +48,20 @@ Exception
 | `PrimaryKeyEmptyError` | 主键列存在空值 | `validate()` |
 
 **捕获示例**：`providers/trade_calendar/trade_calendar_by_stock_api.py` → `fetch_and_clean()` 在通过 `validate(..., STOCKAPI_TRADE_CALENDAR_SCHEMA)` 失败时记录日志，并将当日行降级为 `is_open = -1`（需保证列类型与 schema 一致，否则可能再次校验失败）。
+
+## BufferError
+
+`BufferError` 为缓存 / 写库相关基类，定义见 `exceptions/buffer_error.py`。`storage/buffer.py` 在 **`flush()`** 将底层 SQLite 等异常包装为 **`BufferWriteError`**（`raise ... from e`），便于 job 侧统一捕获；**`append()`** 在校验失败时直接抛出 **`ValidError`** 子类，不经过 `BufferError`。
+
+```text
+Exception
+└── BufferError                       exceptions/buffer_error.py
+    └── BufferWriteError              写入数据库失败（如 flush 阶段）
+```
+
+| 异常类 | 含义 | 抛出位置 |
+| ------ | ---- | -------- |
+| `BufferWriteError` | 将缓存写入 SQLite 失败（连接、执行 upsert 等） | `storage/buffer.py` → `flush()` |
 
 ## ApiError（HTTP / 业务响应）
 
@@ -123,7 +137,9 @@ Exception
 | ---- | ---- |
 | `exceptions/schema_error.py` | `SchemaError` 及子类 |
 | `exceptions/valid_error.py` | `ValidError` 及子类 |
+| `exceptions/buffer_error.py` | `BufferError`、`BufferWriteError` |
 | `exceptions/api_error/base_error.py` | `ApiError`、`NotFoundError`、`BadRequestError` |
 | `exceptions/api_error/stock_api_error.py` | `StockApiError`、`TradeCalendarError`、交易日历与兜底相关子类 |
-| `providers/provider_utils/validater.py` | `validate()` |
+| `schema/schema_utils/validator.py` | `validate()` |
+| `storage/buffer.py` | `Buffer`：`append` / `flush`（可抛出 `ValidError`、`BufferWriteError`） |
 | `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide` |
