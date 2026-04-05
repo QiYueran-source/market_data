@@ -16,6 +16,11 @@ from schema.trade_calendar import STOCKAPI_TRADE_CALENDAR_SCHEMA
 from providers.trade_calendar import trade_calendar_by_stock_api
 from storage.buffer import Buffer
 
+# 异常
+from exceptions.api_error.base_error import ApiError
+from exceptions.buffer_error import BufferWriteError
+from exceptions.valid_error import ValidError
+
 # 日志
 from utils import get_logger
 logger = get_logger('update_stock_api_trade_calendar_job')
@@ -26,9 +31,22 @@ stock_api_trade_calendar_buffer = Buffer(
     buffer_size=1
 )
 
-# 执行
+# 执行入口
 def run():
     today = dt.date.today()
-    df = trade_calendar_by_stock_api.provide(today)
-    stock_api_trade_calendar_buffer.append(df)
-    stock_api_trade_calendar_buffer.flush()
+    try:
+        df = trade_calendar_by_stock_api.provide(today)
+        stock_api_trade_calendar_buffer.append(df)
+        stock_api_trade_calendar_buffer.flush()
+    except ApiError:
+        logger.exception('API 请求失败')
+        raise
+    except ValidError:
+        logger.exception('校验失败，未写入缓存')
+        raise
+    except BufferWriteError:
+        logger.exception('写入数据库失败')
+        raise
+    except Exception:
+        logger.exception('未预期错误')
+        raise

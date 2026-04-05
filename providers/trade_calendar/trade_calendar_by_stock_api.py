@@ -33,14 +33,14 @@ logger = get_logger('trade_calendar_by_stock_api')
 # 异常
 from exceptions.api_error.base_error import BadRequestError, NotFoundError
 from exceptions.api_error.stock_api_error import (
-    StockApiQuotaExhaustedError, 
-    UnexpectedApiCodeError, 
-    DataEmptyError, 
-    WrongDataError, 
+    StockApiQuotaExhaustedError,
+    UnexpectedApiCodeError,
+    DataEmptyError,
+    WrongDataError,
     WrongIsOpenRangeError,
     FallBackError,
     SQLiteError,
-    FallBackDataEmptyError
+    FallBackDataEmptyError,
 )
 
 # 获取变量的
@@ -135,11 +135,17 @@ def fetch_and_clean(date: dt.date | str)->pd.DataFrame:
             'is_open': [is_open]
         })
     except Exception as e:
-        logger.error(f'{e}，进入兜底逻辑')
+        # 配额用尽、URL 不存在等不应再走本地兜底，交给上层 job 处理
+        if isinstance(e, (StockApiQuotaExhaustedError, NotFoundError)):
+            logger.exception('Stock API 配额用尽或资源不存在(404)，不进入兜底')
+            raise
+        logger.exception('API 拉取失败，进入兜底逻辑')
         try:
             df = _handle_error()
-        except Exception as inner_error:
-            logger.error(f'{inner_error}，启用最终兜底逻辑，设置今天的is_open为-1，请及时处理') # 捕获错误，最终兜底，设置今天的is_open为-1
+        except Exception:
+            logger.exception(
+                '兜底查询失败，启用最终逻辑：今日 is_open=-1，请及时处理',
+            )
             df = pd.DataFrame({
                 'calendar_date': [dt.date.today()],
                 'is_open': [-1]
@@ -148,8 +154,8 @@ def fetch_and_clean(date: dt.date | str)->pd.DataFrame:
     # 验证df
     try:
         validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)
-    except Exception as e:
-        logger.error(f'{e},采用兜底，请及时处理')
+    except Exception:
+        logger.exception('校验失败，采用兜底：今日 is_open=-1，请及时处理')
         df = pd.DataFrame({
             'calendar_date': [dt.date.today()],
             'is_open': [-1]
