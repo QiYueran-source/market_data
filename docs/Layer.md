@@ -44,7 +44,7 @@ Provider **不绕过**限流装饰器直连 HTTP/SDK；写库统一走 Storage�
 **职责**
 
 - 接收已对齐 `TableSchema` 的数据。
-- **校验（推荐）**：调用 `valid(df, schema)`（或等价函数）确认列、主键、dtype 等再写入；失败则拒绝写库并记录日志。
+- **校验（推荐）**：调用 **`validate(df, schema)`**（`schema/schema_utils/validator.py`）确认列、主键、dtype 等再写入；失败则拒绝写库；当前由 **`Buffer.append`** 内校验并抛出 **`ValidError`** 子类。
 - **缓存**（按需）：
   - **落库侧**：批量攒批、`executemany`、控制单次事务大小，减少锁持有时间。
   - **请求侧缓存**（可选）：宜留在 Provider 侧或 Provider 末尾，避免与写库队列概念混淆。
@@ -66,7 +66,7 @@ Provider **不绕过**限流装饰器直连 HTTP/SDK；写库统一走 Storage�
 
 - 编排：是否执行（如非交易日跳过、时段围栏）、调用顺序、从配置读取标的列表等。
 - 组合 **Provider** 取数与 **Storage** 落库，完成端到端写入。
-- 日志与退出码：失败时非零退出，便于 cron/systemd 告警。
+- 日志与退出码：失败时 **`logger.exception`** 后上抛；可由上层聚合异常并 **非零退出** 或发通知，便于 cron/systemd 告警。
 
 **不负责**
 
@@ -95,14 +95,14 @@ mktdata/
       ...
     stock_api/
       ...
-  storage/                        # Storage 层：缓存 + 写库 + 可选校验
+  storage/                        # Storage 层：Buffer 校验 + upsert 写库
     __init__.py
     buffer.py
-    writer.py
-  jobs/                           # Job 层：薄编排
-    __init__.py
-    run_calendar.py
+  jobs/                           # Job 层：按库分子目录，每表 update_*.py + run()
+    trade_calendar/
+      update_stock_api_trade_calendar.py
     ...
+  update_trade_calendar.py        # 可选：域级入口，JOBS_REGISTRY 顺序执行
   schema/                         # TableSchema 定义；多源同表时可放共享 normalize 函数
   db/
   utils/
@@ -116,8 +116,8 @@ mktdata/
 | 分层 | 目录 | 放置内容 |
 | ---- | ---- | -------- |
 | Provider | `providers/<源名>/`、`providers/provider_utils/` | 限流、重试、拉数、对齐 TableSchema（含共享归一化调用） |
-| Storage | `storage/` | 校验、`buffer`、`writer`、事务 |
-| Job | `jobs/run_*.py` | 读配置、串联 Provider → Storage |
+| Storage | `storage/` | 校验、`buffer`、upsert、事务 |
+| Job | `jobs/<库>/update_*.py`、`run()` | 读配置、串联 Provider → `Buffer` |
 
 ### 配置与限流参数
 
@@ -127,7 +127,7 @@ mktdata/
 ### 与现有目录的衔接
 
 - `schema/`、`db/`、`utils/`：契约与基础设施；`storage` 与 `build_database` 共用 `db/` 路径约定。
-- 演进路径：脚本逻辑拆为 `jobs/*` + `providers/*` + `storage/writer.py`。
+- 演进路径：脚本逻辑拆为 `jobs/*` + `providers/*` + `storage/buffer.py`（写库经 Buffer upsert）。
 
 ### 可选变体
 
@@ -157,7 +157,7 @@ Provider 使用的限流器若在**进程内存**中实现，则 **每个进程�
 | 层级 | 测什么 |
 | ---- | ------ |
 | Provider | Mock 网络/SDK；限流与重试；出口 DataFrame 与 `TableSchema` 一致（或单测归一化函数） |
-| Storage | 内存 SQLite；`valid` + 事务与幂等写库 |
+| Storage | 内存 SQLite；`validate` + 事务与幂等写库 |
 
 ---
 

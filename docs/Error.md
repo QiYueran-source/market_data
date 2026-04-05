@@ -3,7 +3,7 @@
 ## 约定
 
 - 异常类定义在 `exceptions/` 下，按领域分子模块（`schema_error`、`valid_error`、`api_error`、`buffer_error`）。
-- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，`fetch_and_clean` 在捕获异常时会 `logger.error`。
+- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，`fetch_and_clean` 与交易日历 job 在 **`except` 分支**使用 **`logger.exception`** 记录异常栈；编排入口（如 `update_trade_calendar.main`）可只做汇总（如邮件）而不重复打业务 error。
 - **文档与代码**：类名、继承关系以 `exceptions/**/*.py` 为准；本页表格中的「抛出位置」指向当前已实现调用链。
 
 ## 继承关系（Api 相关）
@@ -47,7 +47,7 @@ Exception
 | `PrimaryKeyDuplicateError` | 主键组合存在重复行 | `validate()` |
 | `PrimaryKeyEmptyError` | 主键列存在空值 | `validate()` |
 
-**捕获示例**：`providers/trade_calendar/trade_calendar_by_stock_api.py` → `fetch_and_clean()` 在通过 `validate(..., STOCKAPI_TRADE_CALENDAR_SCHEMA)` 失败时记录日志，并将当日行降级为 `is_open = -1`（需保证列类型与 schema 一致，否则可能再次校验失败）。
+**捕获示例**：`providers/trade_calendar/trade_calendar_by_stock_api.py` → `fetch_and_clean()` 在 `validate(..., STOCKAPI_TRADE_CALENDAR_SCHEMA)` 失败时使用 **`logger.exception`**，并将当日行降级为 `is_open = -1`（需保证列类型与 schema 一致，否则可能再次校验失败）。
 
 ## BufferError
 
@@ -124,10 +124,12 @@ Exception
 ## 交易日历数据流（异常与降级）
 
 1. **`fetch()`**：上述 HTTP / JSON / 业务校验异常均可抛出；部分类型会触发装饰器重试。
-2. **`fetch_and_clean()`**：对 **`fetch()`** 使用宽泛 `except Exception`，记录日志后调用 **`_handle_error()`**。
-3. **`_handle_error()`** 失败：再次 `except Exception`，记录日志，构造当日 `is_open = -1` 的 DataFrame。
-4. **`validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)`** 失败：记录日志，同样降级为 `is_open = -1`。
-5. **`provide()`**：调用 `fetch_and_clean()`，将结果交给 storage 层。
+2. **`fetch_and_clean()`**：对 **`fetch()`** 使用 `except Exception`。其中 **`StockApiQuotaExhaustedError`**、**`NotFoundError`** 在 **`logger.exception`** 后 **原样上抛**，不再进入 Akshare 兜底；其余异常 **`logger.exception`** 后尝试 **`_handle_error()`**。
+3. **`_handle_error()`** 失败：再次 `except Exception`，**`logger.exception`** 后构造当日 `is_open = -1` 的 DataFrame。
+4. **`validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)`** 失败：**`logger.exception`** 后同样降级为 `is_open = -1`。
+5. **`provide()`**：调用 `fetch_and_clean()`，将结果交给 Job / Storage 层。
+
+**Job 层**：`jobs/trade_calendar/update_stock_api_trade_calendar.py` → **`run()`** 对 **`ApiError`**、**`ValidError`**、**`BufferWriteError`** 及未分类异常使用 **`logger.exception`** 后 **上抛**，供上层（如 `update_trade_calendar.main`）收集。
 
 **语义**：`is_open == -1` 表示「API 与本地兜底均未得到可信值或校验失败」，下游需单独处理。
 
@@ -143,3 +145,5 @@ Exception
 | `schema/schema_utils/validator.py` | `validate()` |
 | `storage/buffer.py` | `Buffer`：`append` / `flush`（可抛出 `ValidError`、`BufferWriteError`） |
 | `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide` |
+| `jobs/trade_calendar/update_stock_api_trade_calendar.py` | `run()`：`provide` → `Buffer`；异常上抛 |
+| `update_trade_calendar.py`（项目根） | 交易日历域入口：`JOBS_REGISTRY` 顺序调用各 `run()` |
