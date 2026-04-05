@@ -29,15 +29,19 @@ source .mktenv/bin/activate
 uv pip install -r requirements.txt
 ```
 
+- 运行建库脚本
+```bash
+/path/to/python /path/to/pj/build_database.py
+```
+
 - 配置环境变量
 ```bash
 cp .env.example .env
 ```
+    - 配置邮件  
+    将.env.example中的内容复制到.env中，并填写相应的值  
 
-## 配置邮件  
-将.env.example中的内容复制到.env中，并填写相应的值  
-
-## 配置crontab  
+- 配置crontab  
 
 运行：  
 ```bash
