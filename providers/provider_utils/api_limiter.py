@@ -94,18 +94,18 @@ TEST_LIMITER = SlidingWindowLimiter(window_sec=30, max_requests=60)
 TUSHARE_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
 MAIRUI_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
 AKSHARE_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
-STOCK_API_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
+STOCK_API_TRADE_CALENDAR_LIMITER = SlidingWindowLimiter(window_sec=60, max_requests=40)
 
 SOURCE_LIMITERS_MAP = {
     'akshare': AKSHARE_LIMITER,
     'mairui': MAIRUI_LIMITER,
     'tushare': TUSHARE_LIMITER,
-    'stock_api': STOCK_API_LIMITER,
+    'stock_api_trade_calendar': STOCK_API_TRADE_CALENDAR_LIMITER,
     'test': TEST_LIMITER,
 }
 
 # 限流装饰器
-def limit(source:Literal['akshare', 'mairui', 'tushare', 'stock_api', 'test']) -> Callable:
+def limit(source:Literal['akshare', 'mairui', 'tushare', 'stock_api_trade_calendar', 'test']) -> Callable:
     def decorater(func:Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:

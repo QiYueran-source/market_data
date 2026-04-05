@@ -11,15 +11,8 @@ import requests
 from providers.provider_utils import *
 
 # 异常
-from exceptions.api_error import (
-    NotFoundError, 
-    BadRequestError,
-    UnexpectedApiCodeError,
-    StockApiQuotaExhaustedError,
-    DataEmptyError,
-    WrongDataError,
-    WrongIsOpenRangeError,
-)
+from exceptions.api_error.base_error import BadRequestError, NotFoundError
+from exceptions.api_error.stock_api_error import StockApiQuotaExhaustedError, UnexpectedApiCodeError, DataEmptyError, WrongDataError, WrongIsOpenRangeError
 
 # 获取变量的
 STOCKAPI_TRADE_CALENDAR_URL = "https://www.stockapi.com.cn/v1/base/tradeDate"
@@ -27,8 +20,9 @@ _STOCKAPI_SUCCESS_CODE = 20000
 _STOCKAPI_QUOTA_CODE = 88886
 _REQUEST_TIMEOUT_SEC = 30
 
-
-def fetch():
+@retry((UnexpectedApiCodeError,DataEmptyError,WrongDataError,WrongIsOpenRangeError))
+@limit('stock_api_trade_calendar')
+def fetch() -> int:
     '''返回今天是否是交易日'''
     try:
         response = requests.get(
