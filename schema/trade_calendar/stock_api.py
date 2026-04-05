@@ -9,7 +9,7 @@ STOCKAPI_TRADE_CALENDAR_SCHEMA = TableSchema(
     database_name='trade_calendar.db',
     table_name='stock_api_trade_calendar',
     schema=[
-        col('calendar_date', np.datetime64, 'TEXT', None, True),
+        col('calendar_date', np.str_ , 'TEXT', None, True),
         col('is_open', np.int8, 'INTEGER', 0, False)
     ]
 )
