@@ -5,14 +5,38 @@
 限流：40次/min  
 '''
 # 引入库
+import os
+from tkinter import E
+import pandas as pd
+import sqlite3 
 import json
 import datetime as dt
 import requests
 from providers.provider_utils import *
 
+# 表结构
+from schema.trade_calendar import STOCKAPI_TRADE_CALENDAR_SCHEMA
+
+# 数据库常量
+from db import DB_DIR
+from schema.trade_calendar import AKSHARE_TRADE_CALENDAR_SCHEMA
+
+# 日志
+from utils import get_logger
+logger = get_logger('trade_calendar_by_stock_api')
+
 # 异常
 from exceptions.api_error.base_error import BadRequestError, NotFoundError
-from exceptions.api_error.stock_api_error import StockApiQuotaExhaustedError, UnexpectedApiCodeError, DataEmptyError, WrongDataError, WrongIsOpenRangeError
+from exceptions.api_error.stock_api_error import (
+    StockApiQuotaExhaustedError, 
+    UnexpectedApiCodeError, 
+    DataEmptyError, 
+    WrongDataError, 
+    WrongIsOpenRangeError,
+    FallBackError,
+    SQLiteError,
+    FallBackDataEmptyError
+)
 
 # 获取变量的
 STOCKAPI_TRADE_CALENDAR_URL = "https://www.stockapi.com.cn/v1/base/tradeDate"
@@ -23,11 +47,11 @@ _REQUEST_TIMEOUT_SEC = 30
 @retry((UnexpectedApiCodeError,DataEmptyError,WrongDataError,WrongIsOpenRangeError))
 @limit('stock_api_trade_calendar')
 def fetch() -> int:
-    '''返回今天是否是交易日'''
+    '''用requests获取stock_api的交易日历数据'''
     try:
         response = requests.get(
             STOCKAPI_TRADE_CALENDAR_URL,
-            params = {'tradeDate': dt.datetime.now().date().strftime('%Y-%m-%d')},
+            params = {'tradeDate': dt.date.today().strftime('%Y-%m-%d')},
             timeout=_REQUEST_TIMEOUT_SEC,
         )
     except requests.RequestException as e:
@@ -67,3 +91,74 @@ def fetch() -> int:
         raise WrongIsOpenRangeError(f'is_open 范围错误: {is_open}')
 
     return is_open
+
+
+def _handle_error():
+    '''
+    兜底逻辑，用akshare表中的数据作为备选，处理错误
+    '''
+    # 连接数据库
+    db_name = AKSHARE_TRADE_CALENDAR_SCHEMA.database_name
+
+    # 读取akshare表中的数据
+    query = f'''
+        SELECT calendar_date, is_open 
+        FROM {AKSHARE_TRADE_CALENDAR_SCHEMA.table_name}
+        WHERE calendar_date = '{dt.date.today()}'
+    '''
+    try:
+        with sqlite3.connect(os.path.join(DB_DIR, db_name)) as conn:
+            df = pd.read_sql_query(query, conn)
+    except Exception as e:
+        raise SQLiteError(f'sqlite兜底查询失败: {e}') from e
+    if df.empty:
+        raise FallBackDataEmptyError(f'akshare表中没有{dt.date.today()}数据')
+    
+    return df
+
+
+def fetch_and_clean()->pd.DataFrame:
+    '''
+    获取fetch，处理异常，整理为TableSchema格式
+    '''
+    # 处理错误
+    try:
+        is_open = fetch()
+        df = pd.DataFrame({
+            'calendar_date': [dt.date.today()],
+            'is_open': [is_open]
+        })
+    except Exception as e:
+        logger.error(f'{e}，进入兜底逻辑')
+        try:
+            df = _handle_error()
+        except Exception as inner_error:
+            logger.error(f'{inner_error}，启用最终兜底逻辑，设置今天的is_open为-1，请及时处理') # 捕获错误，最终兜底，设置今天的is_open为-1
+            df = pd.DataFrame({
+                'calendar_date': [dt.date.today()],
+                'is_open': [-1]
+            })
+            
+    # 验证df
+    try:
+        validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)
+    except Exception as e:
+        logger.error(f'{e},采用兜底，请及时处理')
+        df = pd.DataFrame({
+            'calendar_date': [dt.date.today()],
+            'is_open': [-1]
+        })
+    return df
+
+
+def provide():
+    '''
+    提供给storage层的数据  
+    交易日历为单条记录，用clean获取一次
+    '''
+    df = fetch_and_clean()
+    return df
+    
+    
+
+        

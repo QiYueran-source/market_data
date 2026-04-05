@@ -14,7 +14,7 @@ from schema.trade_calendar import TRADE_CALENDAR_SCHEMAS_LIST
 # 常量定义
 DB_DIR = 'db' # 数据库目录
 DB_SCHEMAS = {
-    'trade_calendar': TRADE_CALENDAR_SCHEMAS_LIST
+    'trade_calendar.db': TRADE_CALENDAR_SCHEMAS_LIST
 } # 表结构列表
 
 __all__ = ['DB_DIR', 'DB_SCHEMAS']

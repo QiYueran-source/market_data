@@ -7,7 +7,7 @@ import numpy as np
 from utils.schema import col, TableSchema
 
 AKSHARE_TRADE_CALENDAR_SCHEMA = TableSchema(
-    database_name='trade_calendar',
+    database_name='trade_calendar.db',
     table_name='akshare_trade_calendar',
     schema=[
         col('calendar_date', np.datetime64, 'TEXT', None, True),

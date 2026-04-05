@@ -79,7 +79,7 @@ def main():
     '''
     # 建立表
     for db in DB_SCHEMAS:
-        conn = sqlite3.connect(os.path.join(DB_DIR, f'{db}.db'))
+        conn = sqlite3.connect(os.path.join(DB_DIR, db))
         for schema in DB_SCHEMAS[db]:
             build_table_by_schema(schema, conn)
         conn.close()

@@ -4,6 +4,7 @@ class StockApiError(ApiError):
     '''stock_api错误基类'''
 
 # -------------------- 交易日历 --------------------
+# ---- 交易日历API ----
 class TradeCalendarError(StockApiError):
     '''交易日历错误基类'''
 
@@ -21,3 +22,13 @@ class WrongDataError(TradeCalendarError):
 
 class WrongIsOpenRangeError(TradeCalendarError):
     '''is_open范围错误'''
+
+# ---- 兜底 ----
+class FallBackError(TradeCalendarError):
+    '''兜底错误基类'''
+
+class SQLiteError(FallBackError):
+    '''兜底时连接sqlite失败'''
+
+class FallBackDataEmptyError(FallBackError):
+    '''兜底时数据为空'''
