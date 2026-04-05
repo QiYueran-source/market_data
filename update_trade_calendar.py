@@ -6,7 +6,7 @@ from utils import add_root_path
 add_root_path()
 
 # 导入邮件工具
-from utils.emails import job_run_email_body, job_run_email_subject, send_email
+from utils.emails import jobinfo_to_email_body, send_email
 
 # 日志
 from utils import get_logger
@@ -23,25 +23,32 @@ JOBS_REGISTRY = {
 # 需要捕获的异常
 from exceptions.email_error import EmailError
 
+
+def gen_job_statics_body(total_jobs:int, success_jobs:int)->str:
+    '''生成job开头统计信息'''
+    return f'执行jobs数量：{total_jobs} 个jobs' + '\n' + f'执行成功数量：{success_jobs}' + '\n' + '具体执行结果如下：' + '\n'
+    
 # 执行所有job
 def main():
     # 运行 + 捕获异常
-    exceptions = {}
+    jobs_nums = len(JOBS_REGISTRY)
+    success_jobs_nums = 0
     for job_name, job_func in JOBS_REGISTRY.items():
         try:
-            job_func()
+            info = job_func()
+            logger.info(f'{job_name} 执行成功，信息: {info}')
+            success_jobs_nums += 1
         except Exception as e:
-            exceptions[job_name] = e
-            logger.exception(f'{job_name} 执行遇到错误')
+            logger.exception(f'{job_name} 执行时遇到未预期错误，错误信息: {e}')
+            raise e
     
     # 发送邮件（主题与正文由模板生成）
-    report_name = '交易日历更新统计'
-    header = job_run_email_subject(report_name, exceptions)
-    content = job_run_email_body(report_name, exceptions)
+    subject = '交易日历更新统计'
+    content = gen_job_statics_body(jobs_nums, success_jobs_nums) + jobinfo_to_email_body(info)
     
     # 尝试发送邮件
     try:
-        send_email(header=header, content=content)
+        send_email(header=subject, content=content)
     except EmailError as e:
         logger.exception(f'发送邮件遇到错误，错误信息:{e}')
 

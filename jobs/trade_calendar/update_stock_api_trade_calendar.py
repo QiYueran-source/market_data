@@ -10,11 +10,15 @@
 '''
 # 库
 import datetime as dt
+from collections import Counter
 
 # schema, provider和buffer  
 from schema.trade_calendar import STOCKAPI_TRADE_CALENDAR_SCHEMA
 from providers.trade_calendar import trade_calendar_by_stock_api
 from storage.buffer import Buffer
+
+# job工具
+from jobs.job_utils import JobInfo
 
 # 异常
 from exceptions.api_error.base_error import ApiError
@@ -32,21 +36,48 @@ stock_api_trade_calendar_buffer = Buffer(
 )
 
 # 执行入口
-def run():
+def run()->JobInfo:
+    '''
+    执行入口
+
+    返回：
+    - JobInfo: 执行信息，用于邮件通知  
+    '''
+    total_fallback_records = Counter()
+    total_fetch_times = 0
     today = dt.date.today()
+    success = True
+    error = None
     try:
-        df = trade_calendar_by_stock_api.provide(today)
-        stock_api_trade_calendar_buffer.append(df)
-        stock_api_trade_calendar_buffer.flush()
-    except ApiError:
+        df, fallback_records, fetch_times = trade_calendar_by_stock_api.provide(today)
+        total_fallback_records.update(fallback_records) # 汇总所有兜底记录  
+        total_fetch_times += fetch_times # 汇总总获取次数
+        stock_api_trade_calendar_buffer.append(df) # 写入缓存
+        stock_api_trade_calendar_buffer.flush() # 刷新缓存
+    except ApiError as e:
         logger.exception('API 请求失败')
-        raise
-    except ValidError:
+        success = False
+        error = e
+    except ValidError as e:
         logger.exception('校验失败，未写入缓存')
-        raise
-    except BufferWriteError:
+        success = False
+        error = e
+    except BufferWriteError as e:
         logger.exception('写入数据库失败')
-        raise
-    except Exception:
+        success = False
+        error = e
+    except Exception as e:
         logger.exception('未预期错误')
-        raise
+        success = False
+        error = e
+    finally:
+        info:JobInfo = {
+            'job_name': 'update_stock_api_trade_calendar',
+            'finished_at': dt.datetime.now(),
+            'success': success,
+            'error': error,
+            'total_fetch_times': total_fetch_times,
+            'fallback_records': dict(total_fallback_records),
+            'additional_info': {}
+        }
+        return info

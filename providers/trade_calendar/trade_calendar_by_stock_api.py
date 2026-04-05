@@ -5,12 +5,13 @@
 限流：40次/min  
 '''
 # 引入库
-import os
-import pandas as pd
-import sqlite3 
 import json
+from collections import Counter
 import datetime as dt
+
+import pandas as pd
 import requests
+from typing import Tuple
 
 # 工具
 from providers.provider_utils import limit, retry
@@ -20,7 +21,6 @@ from schema.schema_utils import validate
 from schema.trade_calendar import STOCKAPI_TRADE_CALENDAR_SCHEMA
 
 # 数据库常量
-from db import DB_DIR
 from schema.trade_calendar import AKSHARE_TRADE_CALENDAR_SCHEMA
 
 # api
@@ -38,7 +38,6 @@ from exceptions.api_error.stock_api_error import (
     DataEmptyError,
     WrongDataError,
     WrongIsOpenRangeError,
-    FallBackError,
     SQLiteError,
     FallBackDataEmptyError,
 )
@@ -48,6 +47,12 @@ STOCKAPI_TRADE_CALENDAR_URL = "https://www.stockapi.com.cn/v1/base/tradeDate"
 _STOCKAPI_SUCCESS_CODE = 20000
 _STOCKAPI_QUOTA_CODE = 88886
 _REQUEST_TIMEOUT_SEC = 30
+
+# 单次 fetch_and_clean 的兜底计数 key（仅在实际发生对应分支时写入 dict）
+_FALLBACK_KEY_AKSHARE = 'FETCH_FAILED_USE_AKSHARE'  # API 失败后 Akshare 表兜底成功
+_FALLBACK_KEY_FINAL = 'FETCH_FAIL_FINAL_MINUS_ONE'  # API + 兜底查询均失败，is_open=-1
+_FALLBACK_KEY_VALIDATE = 'VALIDATE_FAIL_MINUS_ONE'  # 校验失败，is_open=-1
+
 
 @retry((UnexpectedApiCodeError,DataEmptyError,WrongDataError,WrongIsOpenRangeError))
 @limit('stock_api_trade_calendar')
@@ -100,18 +105,9 @@ def fetch(date: dt.date | str) -> int:
     return is_open
 
 
-def _handle_error():
+def _handle_error()->pd.DataFrame:
     '''
     兜底逻辑，用akshare表中的数据作为备选，处理错误
-    '''
-    # 连接数据库
-    db_name = AKSHARE_TRADE_CALENDAR_SCHEMA.database_name
-
-    # 读取akshare表中的数据
-    query = f'''
-        SELECT calendar_date, is_open 
-        FROM {AKSHARE_TRADE_CALENDAR_SCHEMA.table_name}
-        WHERE calendar_date = '{dt.date.today()}'
     '''
     try:
         df = stock_api_trade_calendar.get_trade_calendar_by_date(dt.date.today())
@@ -123,11 +119,15 @@ def _handle_error():
     return df
 
 
-def fetch_and_clean(date: dt.date | str)->pd.DataFrame:
+def fetch_and_clean(date: dt.date | str)->Tuple[pd.DataFrame,Counter]:
     '''
     获取fetch，处理异常，整理为TableSchema格式
+
+    返回：
+    - pd.DataFrame: 交易日历数据
+    - Counter: 兜底记录，key:兜底原因，value:兜底次数（仅含本次调用中发生过的项）
     '''
-    # 处理错误
+    records = Counter()
     try:
         is_open = fetch(date)
         df = pd.DataFrame({
@@ -142,6 +142,7 @@ def fetch_and_clean(date: dt.date | str)->pd.DataFrame:
         logger.exception('API 拉取失败，进入兜底逻辑')
         try:
             df = _handle_error()
+            records[_FALLBACK_KEY_AKSHARE] += 1
         except Exception:
             logger.exception(
                 '兜底查询失败，启用最终逻辑：今日 is_open=-1，请及时处理',
@@ -150,7 +151,7 @@ def fetch_and_clean(date: dt.date | str)->pd.DataFrame:
                 'calendar_date': [dt.date.today()],
                 'is_open': [-1]
             })
-            
+            records[_FALLBACK_KEY_FINAL] += 1
     # 验证df
     try:
         validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)
@@ -160,16 +161,34 @@ def fetch_and_clean(date: dt.date | str)->pd.DataFrame:
             'calendar_date': [dt.date.today()],
             'is_open': [-1]
         })
-    return df
+        records[_FALLBACK_KEY_VALIDATE] += 1
+    return df, records
 
 
-def provide(date: dt.date | str = dt.date.today())->pd.DataFrame:
+def provide(date: dt.date | str = dt.date.today())->Tuple[pd.DataFrame, Counter, int]:
     '''
-    提供给storage层的数据  
-    交易日历为单条记录，用clean获取一次
+    提供给storage层的数据   
+    交易日历为单条记录，用clean获取一次    
+    会汇总所有调用中的兜底记录，返回provide层总兜底次数    
+
+    返回：
+    - pd.DataFrame: 交易日历数据  
+    - Counter: 兜底记录，key:兜底原因，value:兜底次数  
+    - int: 总获取次数
     '''
-    df = fetch_and_clean(date)
-    return df
+    # 总兜底计数器，用于汇总所有兜底记录  
+    provide_total_fallback_records = Counter()
+
+    # 总次数计数器
+    total_fetch_times = 0
+
+    # 获取数据与兜底记录  
+    df, fallback_records = fetch_and_clean(date)
+    provide_total_fallback_records.update(fallback_records)
+    total_fetch_times += 1
+
+    # 返回数据与总兜底记录  
+    return df, provide_total_fallback_records, total_fetch_times
     
     
 
