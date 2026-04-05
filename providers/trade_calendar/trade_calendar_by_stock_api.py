@@ -6,7 +6,6 @@
 '''
 # 引入库
 import os
-from tkinter import E
 import pandas as pd
 import sqlite3 
 import json

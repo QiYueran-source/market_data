@@ -1,59 +1,129 @@
-# 异常定义与处理 
+# 异常定义与处理
 
-## 异常的定义
-异常的定义在exceptions目录下，
-每个异常的定义都继承自Exception基类，
-并定义了具体的错误类型。
+## 约定
 
-## 异常的捕获和日志  
-注意，异常仅需要汇报一次，在顶层捕获的位置汇报 + 写入日志。
-**模块可以保留其他等级的日志。**  
+- 异常类定义在 `exceptions/` 下，按领域分子模块（`schema_error`、`valid_error`、`api_error`）。
+- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，`fetch_and_clean` 在捕获异常时会 `logger.error`。
+- **文档与代码**：类名、继承关系以 `exceptions/**/*.py` 为准；本页表格中的「抛出位置」指向当前已实现调用链。
 
-## 异常定义
-### SchemaError
-SchemaError是schema相关的错误基类，
-所有schema相关的错误都继承自SchemaError。
+## 继承关系（Api 相关）
 
-| 错误类型 | 定义 | 抛出位置 | 捕获位置 | 处理 |
-| -------- | ---- | -------- | -------- | ---- |
-| PrimaryKeyMissingException | 表结构要求主键（`primary_key_required=True`），但 `schema` 中没有任何 `pk=True` 的字段。 | `TableSchema.__post_init__`，在校验主键时。 | 暂无 | 记录日志 |
-| DuplicateColumnsError | 表结构中字段名重复（`cols` 去重前后长度不一致）。 | `TableSchema.__post_init__`，在校验重复列时。 | 暂无 | 记录日志 |
-| FieldNotFoundError | 按名称查找字段时，该名不在 `schema` 中。 | `TableSchema.get_field_by_name()`。 | 暂无 | 记录日志 |
+```text
+Exception
+└── ApiError                          exceptions/api_error/base_error.py
+    ├── NotFoundError
+    ├── BadRequestError
+    └── StockApiError                 exceptions/api_error/stock_api_error.py
+        └── TradeCalendarError
+            ├── StockApiQuotaExhaustedError
+            ├── UnexpectedApiCodeError
+            ├── DataEmptyError
+            ├── WrongDataError
+            ├── WrongIsOpenRangeError
+            └── FallBackError
+                ├── SQLiteError
+                └── FallBackDataEmptyError
+```
 
-### ValidError
-ValidError是校验相关的错误基类，
-所有校验相关的错误都继承自ValidError。
+## SchemaError
 
-| 错误类型 | 定义 | 抛出位置 | 捕获位置 | 处理 |
-| -------- | ---- | -------- | -------- | ---- |
-| PrimaryKeyUnmatchError | 校验时，在 ``primary_key_required`` 为 True 的前提下，df 缺少 schema 中定义的主键列。 | `validater.valid()`。 | 暂无 | 暂无 |
-| FieldNameUnmatchError | 校验时，df 列名重复，或包含 schema 中未定义的列名。 | `validater.valid()`。 | 暂无 | 暂无 |
-| FieldTypeUnmatchError | 校验时，df 中字段类型与 schema 中字段类型不兼容。 | `validater.valid()`。 | 暂无 | 暂无 |
-| PrimaryKeyDuplicateError | 校验时，在 ``primary_key_required`` 为 True 的前提下，df 中主键组合有重复行。 | `validater.valid()`。 | 暂无 | 暂无 |
-| PrimaryKeyEmptyError | 校验时，在 ``primary_key_required`` 为 True 的前提下，df 中主键列存在空值。 | `validater.valid()`。 | 暂无 | 暂无 |
+`SchemaError` 为表结构相关基类，定义见 `exceptions/schema_error.py`。
 
-### APIError 
-API错误的基类，这是最重要的一个错误类型，
-需要根据API的返回码，定义具体的错误类型。 
+| 异常类 | 含义 | 抛出位置 |
+| ------ | ---- | -------- |
+| `PrimaryKeyMissingException` | 要求主键（`primary_key_required=True`）但 schema 中无任何 `pk=True` 字段 | `utils/schema/__init__.py` → `TableSchema.__post_init__` |
+| `DuplicateColumnsError` | 表结构中字段名重复 | 同上 |
+| `FieldNotFoundError` | `get_field_by_name(name)` 时名称不在 schema 中 | `TableSchema.get_field_by_name()` |
 
-#### 通用错误
-| 状态码(requests的状态码，如200) | 消息码（消息中可能携带码，用于区分） | 错误类型 | 定义 | 抛出位置 | 捕获位置 | 处理 |
-| -------- | ---- | -------- | -------- | ---- |
-| 404 | NotFoundError | 未找到错误，这是一个通用的错误，通常表示API地址错误或者被移除了 | 所有fetch()函数，用于日志记录 | 暂无 | 兜底处理 |
+## ValidError
 
+`ValidError` 为 DataFrame 与 `TableSchema` 校验基类，定义见 `exceptions/valid_error.py`。校验入口为 **`providers/provider_utils/validater.py` → `validate(df, schema)`**（非 `valid()`）。
 
-#### StockApiError
-StockApiError是stock_api的错误基类，
-所有stock_api的错误都继承自StockApiError。
+| 异常类 | 含义 | 抛出位置 |
+| ------ | ---- | -------- |
+| `PrimaryKeyUnmatchError` | 要求主键时 df 缺少主键列 | `validate()` |
+| `FieldNameUnmatchError` | df 列名重复，或包含 schema 未定义的列 | `validate()` |
+| `FieldTypeUnmatchError` | 列 dtype 与 schema 不兼容 | `validate()` |
+| `PrimaryKeyDuplicateError` | 主键组合存在重复行 | `validate()` |
+| `PrimaryKeyEmptyError` | 主键列存在空值 | `validate()` |
 
-**https://www.stockapi.com.cn/v1/base/tradeDate 交易日历**  
+**捕获示例**：`providers/trade_calendar/trade_calendar_by_stock_api.py` → `fetch_and_clean()` 在通过 `validate(..., STOCKAPI_TRADE_CALENDAR_SCHEMA)` 失败时记录日志，并将当日行降级为 `is_open = -1`（需保证列类型与 schema 一致，否则可能再次校验失败）。
 
-| 状态码(requests的状态码，如200) | 消息码（消息中可能携带码，用于区分） | 错误类型 | 定义 | 抛出位置 | 捕获位置 | 处理 |
-| ----- | -------- | ---- | ---- | -------- | -------- | ---- |
-| 200 | 88886 | StockApiQuotaExhaustedError | 请求次数超过限额 | 暂无 | 暂无 | 暂无 |
-| 200 | 其他 | UnexpectedApiCodeError | 返回了意外的API码 | 暂无 | 暂无 | 暂无 |
-| 200 | 0 | DataEmptyError | 数据为空 | 暂无 | 暂无 | 暂无 |
-| 200 | 0 | WrongDataError | 数据格式错误，不是字典/没有所需字段 | 暂无 | 暂无 | 暂无 |
-| 200 | 0 | WrongIsOpenRangeError | is_open范围错误，不为0或1 | 暂无 | 暂无 | 暂无 |
+## ApiError（HTTP / 业务响应）
 
+基类为 **`ApiError`**（`exceptions/api_error/base_error.py`）。与 HTTP、JSON 业务码相关的子类按接口文档扩展；当前交易日历实现见下节。
 
+### 通用（HTTP / 请求层）
+
+| 异常类 | 含义 | 典型触发 |
+| ------ | ---- | -------- |
+| `NotFoundError` | 资源未找到 | `requests` 响应状态码 `404` |
+| `BadRequestError` | 请求或响应状态异常 | 非 200 状态码；或 `requests` 层网络/超时等封装为 `RequestException` 后转换 |
+
+### Stock API：交易日历 `GET /v1/base/tradeDate`
+
+实现文件：`providers/trade_calendar/trade_calendar_by_stock_api.py` → `fetch()`。
+
+**HTTP 状态码**（`response.status_code`）：
+
+| HTTP | 异常类 | 说明 |
+| ---- | ------ | ---- |
+| 404 | `NotFoundError` | URL 不存在或已变更 |
+| 非 200 | `BadRequestError` | 其它错误状态码 |
+
+**JSON 根对象 `code`（业务码）**（在 HTTP 200 且 body 为合法 JSON 对象时）：
+
+| JSON `code` | 异常类 | 说明 |
+| ------------- | ------ | ---- |
+| `88886` | `StockApiQuotaExhaustedError` | 请求超过限额 |
+| 非 `20000`（且非上述配额码） | `UnexpectedApiCodeError` | 非成功业务码；成功约定为 `20000` |
+
+**JSON `data` 与字段**（业务码已为 `20000` 后）：
+
+| 条件 | 异常类 | 说明 |
+| ---- | ------ | ---- |
+| 根节点非 `dict` | `WrongDataError` | 响应根不是对象 |
+| `data` 非 `dict` | `WrongDataError` | `data` 类型错误 |
+| `data` 为空映射 | `DataEmptyError` | `data` 无键值 |
+| 缺少 `isTradeDate` | `WrongDataError` | 字段缺失（注意：`0` 为合法值，不能用真假判断代替 `in`） |
+| `isTradeDate` 非 `0`/`1` | `WrongIsOpenRangeError` | 取值超出约定 |
+
+**其它**：
+
+| 条件 | 异常类 | 说明 |
+| ---- | ------ | ---- |
+| 响应体非合法 JSON | `WrongDataError` | 由 `JSONDecodeError` 转换 |
+
+**重试**：`fetch` 被 `@retry` 装饰，对 `UnexpectedApiCodeError`、`DataEmptyError`、`WrongDataError`、`WrongIsOpenRangeError` 会按 `retry` 配置重试；`NotFoundError`、`BadRequestError`、`StockApiQuotaExhaustedError` 等不在重试元组中则直接抛出。
+
+### 交易日历：本地兜底（Akshare 表）
+
+由 `_handle_error()` 使用 SQLite 查询 `AKSHARE_TRADE_CALENDAR_SCHEMA` 对应库表。
+
+| 异常类 | 含义 | 典型触发 |
+| ------ | ---- | -------- |
+| `SQLiteError` | SQLite 兜底阶段失败（连接或查询异常统一包装） | `sqlite3` / `read_sql` 等失败 |
+| `FallBackDataEmptyError` | 查询结果为空（当日无行） | `df.empty` |
+
+二者均继承 `FallBackError` → `TradeCalendarError` → `StockApiError` → `ApiError`。
+
+## 交易日历数据流（异常与降级）
+
+1. **`fetch()`**：上述 HTTP / JSON / 业务校验异常均可抛出；部分类型会触发装饰器重试。
+2. **`fetch_and_clean()`**：对 **`fetch()`** 使用宽泛 `except Exception`，记录日志后调用 **`_handle_error()`**。
+3. **`_handle_error()`** 失败：再次 `except Exception`，记录日志，构造当日 `is_open = -1` 的 DataFrame。
+4. **`validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)`** 失败：记录日志，同样降级为 `is_open = -1`。
+5. **`provide()`**：调用 `fetch_and_clean()`，将结果交给 storage 层。
+
+**语义**：`is_open == -1` 表示「API 与本地兜底均未得到可信值或校验失败」，下游需单独处理。
+
+## 模块索引
+
+| 路径 | 内容 |
+| ---- | ---- |
+| `exceptions/schema_error.py` | `SchemaError` 及子类 |
+| `exceptions/valid_error.py` | `ValidError` 及子类 |
+| `exceptions/api_error/base_error.py` | `ApiError`、`NotFoundError`、`BadRequestError` |
+| `exceptions/api_error/stock_api_error.py` | `StockApiError`、`TradeCalendarError`、交易日历与兜底相关子类 |
+| `providers/provider_utils/validater.py` | `validate()` |
+| `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide` |
