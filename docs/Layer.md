@@ -99,6 +99,8 @@ mktdata/
     __init__.py
     buffer.py
   jobs/                           # Job 层：按库分子目录，每表 update_*.py + run()
+    job_utils/                    # JobInfo 等编排共用类型
+      info.py
     trade_calendar/
       update_stock_api_trade_calendar.py
     ...
@@ -117,7 +119,7 @@ mktdata/
 | ---- | ---- | -------- |
 | Provider | `providers/<源名>/`、`providers/provider_utils/` | 限流、重试、拉数、对齐 TableSchema（含共享归一化调用） |
 | Storage | `storage/` | 校验、`buffer`、upsert、事务 |
-| Job | `jobs/<库>/update_*.py`、`run()` | 读配置、串联 Provider → `Buffer` |
+| Job | `jobs/<库>/update_*.py`、`run()`；`jobs/job_utils/`（如 **`JobInfo`**） | 读配置、串联 Provider → `Buffer`；**`run()`** 可返回 **`JobInfo`** 供域入口汇总 |
 
 ### 配置与限流参数
 

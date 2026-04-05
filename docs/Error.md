@@ -65,7 +65,7 @@ Exception
 
 ## EmailError（SMTP / 发信配置）
 
-`EmailError` 为邮件模块相关基类，定义见 `exceptions/email_error.py`。由 **`utils/emails/__init__.py` → `send_email()`** 在配置缺失或 SMTP 失败时抛出。
+`EmailError` 为邮件模块相关基类，定义见 `exceptions/email_error.py`。由 **`utils/emails/send.py` → `send_email()`**（经 **`utils/emails/__init__.py`** 导出）在配置缺失或 SMTP 失败时抛出。
 
 **约定**：此类异常 **不会** 作为「再发一封通知邮件」的触发条件；应由 **`update_trade_calendar.py` → `main()`**（或其它域级编排入口）在 **`try/except EmailError`**（或分别捕获子类）中 **`logger.exception`** 记录即可，**禁止**在捕获后再调用 `send_email` 报告同一失败，以免循环或垃圾告警。
 
@@ -78,8 +78,8 @@ Exception
 
 | 异常类 | 含义 | 抛出位置 |
 | ------ | ---- | -------- |
-| `EnvVarEmptyError` | `EMAIL_USERNAME`、`EMAIL_PASSWORD`、`TO_EMAILS`、`SMTP_HOST`、`SMTP_PORT` 等必填项缺失 | `utils/emails/__init__.py` → `send_email()`（发送前检查） |
-| `EmailSendError` | `smtplib` 连接、登录、`sendmail` 等失败（由实现包装为统一异常） | `utils/emails/__init__.py` → `send_email()` |
+| `EnvVarEmptyError` | `EMAIL_USERNAME`、`EMAIL_PASSWORD`、`TO_EMAILS`、`SMTP_HOST`、`SMTP_PORT` 等必填项缺失 | `utils/emails/send.py` → `send_email()`（发送前检查） |
+| `EmailSendError` | `smtplib` 连接、登录、`sendmail` 等失败（由实现包装为统一异常） | `utils/emails/send.py` → `send_email()` |
 
 ## ApiError（HTTP / 业务响应）
 
@@ -145,9 +145,9 @@ Exception
 2. **`fetch_and_clean()`**：对 **`fetch()`** 使用 `except Exception`。其中 **`StockApiQuotaExhaustedError`**、**`NotFoundError`** 在 **`logger.exception`** 后 **原样上抛**，不再进入 Akshare 兜底；其余异常 **`logger.exception`** 后尝试 **`_handle_error()`**。
 3. **`_handle_error()`** 失败：再次 `except Exception`，**`logger.exception`** 后构造当日 `is_open = -1` 的 DataFrame。
 4. **`validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)`** 失败：**`logger.exception`** 后同样降级为 `is_open = -1`。
-5. **`provide()`**：调用 `fetch_and_clean()`，将结果交给 Job / Storage 层。
+5. **`provide()`**：调用 **`fetch_and_clean()`**，返回 **`(DataFrame, 兜底统计 Counter, 拉取次数 int)`**，供 Job 写入 **`Buffer`**。
 
-**Job 层**：`jobs/trade_calendar/update_stock_api_trade_calendar.py` → **`run()`** 对 **`ApiError`**、**`ValidError`**、**`BufferWriteError`** 及未分类异常使用 **`logger.exception`** 后 **上抛**，供上层（如 `update_trade_calendar.main`）收集。
+**Job 层**：`jobs/trade_calendar/update_stock_api_trade_calendar.py` → **`run()`** 串联 **`provide()`** 与 **`Buffer`**；对 **`ApiError`**、**`ValidError`**、**`BufferWriteError`** 及未分类异常使用 **`logger.exception`** 后 **不再上抛**，将 **`success=False`** 与 **`error`** 写入 **`JobInfo` 并返回**，供 **`update_trade_calendar.main`** 等编排入口收集并写入汇总邮件。
 
 **语义**：`is_open == -1` 表示「API 与本地兜底均未得到可信值或校验失败」，下游需单独处理。
 
@@ -162,8 +162,11 @@ Exception
 | `exceptions/api_error/stock_api_error.py` | `StockApiError`、`TradeCalendarError`、交易日历与兜底相关子类 |
 | `schema/schema_utils/validator.py` | `validate()` |
 | `storage/buffer.py` | `Buffer`：`append` / `flush`（可抛出 `ValidError`、`BufferWriteError`） |
-| `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide` |
-| `jobs/trade_calendar/update_stock_api_trade_calendar.py` | `run()`：`provide` → `Buffer`；异常上抛 |
+| `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide`（返回 DataFrame、兜底统计、拉取次数） |
+| `jobs/job_utils/info.py` | **`JobInfo`**（任务执行结果，供邮件与日志） |
+| `jobs/trade_calendar/update_stock_api_trade_calendar.py` | `run()`：`provide` → `Buffer`；失败时 **`logger.exception`** 后返回 **`success=False`** 的 **`JobInfo`** |
 | `exceptions/email_error.py` | `EmailError`、`EmailSendError`、`EnvVarEmptyError` |
-| `utils/emails/__init__.py` | `send_email()`（可抛出 `EmailError` 子类） |
-| `update_trade_calendar.py`（项目根） | 交易日历域入口：`JOBS_REGISTRY` 顺序调用各 `run()`；宜捕获 **`EmailError`** 仅记日志、不二次发信 |
+| `utils/emails/send.py` | **`send_email()`** 实现（可抛出 `EmailError` 子类） |
+| `utils/emails/template.py` | **`jobinfo_to_email_body()`**：单条 **`JobInfo`** → 纯文本段落 |
+| `utils/emails/__init__.py` | 导出 **`send_email`**、**`jobinfo_to_email_body`** 等 |
+| `update_trade_calendar.py`（项目根） | 交易日历域入口：`JOBS_REGISTRY` 顺序调用各 **`run()`**，收集 **`JobInfo`** 发汇总邮件；宜捕获 **`EmailError`** 仅记日志、不二次发信 |
