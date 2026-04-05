@@ -2,8 +2,8 @@
 
 ## 约定
 
-- 异常类定义在 `exceptions/` 下，按领域分子模块（`schema_error`、`valid_error`、`api_error`、`buffer_error`）。
-- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，`fetch_and_clean` 与交易日历 job 在 **`except` 分支**使用 **`logger.exception`** 记录异常栈；编排入口（如 `update_trade_calendar.main`）可只做汇总（如邮件）而不重复打业务 error。
+- 异常类定义在 `exceptions/` 下，按领域分子模块（`schema_error`、`valid_error`、`api_error`、`buffer_error`、`email_error`）。
+- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，`fetch_and_clean` 与交易日历 job 在 **`except` 分支**使用 **`logger.exception`** 记录异常栈；编排入口（如 `update_trade_calendar.main`）在汇总通知失败时，对 **`EmailError`** 子类 **仅记录日志，不再次调用发信**（避免失败通知递归发邮件）。
 - **文档与代码**：类名、继承关系以 `exceptions/**/*.py` 为准；本页表格中的「抛出位置」指向当前已实现调用链。
 
 ## 继承关系（Api 相关）
@@ -62,6 +62,24 @@ Exception
 | 异常类 | 含义 | 抛出位置 |
 | ------ | ---- | -------- |
 | `BufferWriteError` | 将缓存写入 SQLite 失败（连接、执行 upsert 等） | `storage/buffer.py` → `flush()` |
+
+## EmailError（SMTP / 发信配置）
+
+`EmailError` 为邮件模块相关基类，定义见 `exceptions/email_error.py`。由 **`utils/emails/__init__.py` → `send_email()`** 在配置缺失或 SMTP 失败时抛出。
+
+**约定**：此类异常 **不会** 作为「再发一封通知邮件」的触发条件；应由 **`update_trade_calendar.py` → `main()`**（或其它域级编排入口）在 **`try/except EmailError`**（或分别捕获子类）中 **`logger.exception`** 记录即可，**禁止**在捕获后再调用 `send_email` 报告同一失败，以免循环或垃圾告警。
+
+```text
+Exception
+└── EmailError                        exceptions/email_error.py
+    ├── EmailSendError                SMTP 发送过程失败（如认证、被拒收）
+    └── EnvVarEmptyError              发信所需环境变量未设置或为空
+```
+
+| 异常类 | 含义 | 抛出位置 |
+| ------ | ---- | -------- |
+| `EnvVarEmptyError` | `EMAIL_USERNAME`、`EMAIL_PASSWORD`、`TO_EMAILS`、`SMTP_HOST`、`SMTP_PORT` 等必填项缺失 | `utils/emails/__init__.py` → `send_email()`（发送前检查） |
+| `EmailSendError` | `smtplib` 连接、登录、`sendmail` 等失败（由实现包装为统一异常） | `utils/emails/__init__.py` → `send_email()` |
 
 ## ApiError（HTTP / 业务响应）
 
@@ -146,4 +164,6 @@ Exception
 | `storage/buffer.py` | `Buffer`：`append` / `flush`（可抛出 `ValidError`、`BufferWriteError`） |
 | `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide` |
 | `jobs/trade_calendar/update_stock_api_trade_calendar.py` | `run()`：`provide` → `Buffer`；异常上抛 |
-| `update_trade_calendar.py`（项目根） | 交易日历域入口：`JOBS_REGISTRY` 顺序调用各 `run()` |
+| `exceptions/email_error.py` | `EmailError`、`EmailSendError`、`EnvVarEmptyError` |
+| `utils/emails/__init__.py` | `send_email()`（可抛出 `EmailError` 子类） |
+| `update_trade_calendar.py`（项目根） | 交易日历域入口：`JOBS_REGISTRY` 顺序调用各 `run()`；宜捕获 **`EmailError`** 仅记日志、不二次发信 |
