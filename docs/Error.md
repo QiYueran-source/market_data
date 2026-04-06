@@ -31,13 +31,13 @@ Exception
 
 | 异常类 | 含义 | 抛出位置 |
 | ------ | ---- | -------- |
-| `PrimaryKeyMissingException` | 要求主键（`primary_key_required=True`）但 schema 中无任何 `pk=True` 字段 | `utils/schema/__init__.py` → `TableSchema.__post_init__` |
+| `PrimaryKeyMissingException` | 要求主键（`primary_key_required=True`）但 schema 中无任何 `pk=True` 字段 | `utils/schema/table_schema.py` → `TableSchema.__post_init__` |
 | `DuplicateColumnsError` | 表结构中字段名重复 | 同上 |
-| `FieldNotFoundError` | `get_field_by_name(name)` 时名称不在 schema 中 | `TableSchema.get_field_by_name()` |
+| `FieldNotFoundError` | `get_field_by_name(name)` 时名称不在 schema 中 | `utils/schema/table_schema.py` → `TableSchema.get_field_by_name()` |
 
 ## ValidError
 
-`ValidError` 为 DataFrame 与 `TableSchema` 校验基类，定义见 `exceptions/valid_error.py`。校验入口为 **`schema/schema_utils/validator.py` → `validate(df, schema)`**；推荐 `from schema.schema_utils import validate`（非 `valid()`）。
+`ValidError` 为 DataFrame 与 `TableSchema` 校验基类，定义见 `exceptions/valid_error.py`。校验入口为 **`utils/schema/validator.py` → `validate(df, schema)`**；推荐 `from utils.schema import validate`（非 `valid()`）。
 
 | 异常类 | 含义 | 抛出位置 |
 | ------ | ---- | -------- |
@@ -160,7 +160,8 @@ Exception
 | `exceptions/buffer_error.py` | `BufferError`、`BufferWriteError` |
 | `exceptions/api_error/base_error.py` | `ApiError`、`NotFoundError`、`BadRequestError` |
 | `exceptions/api_error/stock_api_error.py` | `StockApiError`、`TradeCalendarError`、交易日历与兜底相关子类 |
-| `schema/schema_utils/validator.py` | `validate()` |
+| `utils/schema/table_schema.py` | `TableSchema`、`Field`、`col` |
+| `utils/schema/validator.py` | `validate()` |
 | `storage/buffer.py` | `Buffer`：`append` / `flush`（可抛出 `ValidError`、`BufferWriteError`） |
 | `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide`（返回 DataFrame、兜底统计、拉取次数） |
 | `jobs/job_utils/info.py` | **`JobInfo`**（任务执行结果，供邮件与日志） |

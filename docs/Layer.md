@@ -44,7 +44,7 @@ Provider **不绕过**限流装饰器直连 HTTP/SDK；写库统一走 Storage�
 **职责**
 
 - 接收已对齐 `TableSchema` 的数据。
-- **校验（推荐）**：调用 **`validate(df, schema)`**（`schema/schema_utils/validator.py`）确认列、主键、dtype 等再写入；失败则拒绝写库；当前由 **`Buffer.append`** 内校验并抛出 **`ValidError`** 子类。
+- **校验（推荐）**：调用 **`validate(df, schema)`**（`utils/schema/validator.py`）确认列、主键、dtype 等再写入；失败则拒绝写库；当前由 **`Buffer.append`** 内校验并抛出 **`ValidError`** 子类。
 - **缓存**（按需）：
   - **落库侧**：批量攒批、`executemany`、控制单次事务大小，减少锁持有时间。
   - **请求侧缓存**（可选）：宜留在 Provider 侧或 Provider 末尾，避免与写库队列概念混淆。
@@ -105,9 +105,14 @@ mktdata/
       update_stock_api_trade_calendar.py
     ...
   update_trade_calendar.py        # 可选：域级入口，JOBS_REGISTRY 顺序执行
-  schema/                         # TableSchema 定义；多源同表时可放共享 normalize 函数
+  schema/                         # 各库表结构定义（如 trade_calendar）；基于 utils.schema 拼装
+    trade_calendar/
+      ...
   db/
   utils/
+    schema/                       # TableSchema、Field、col；validate(df, schema)
+      table_schema.py
+      validator.py
   exceptions/
   build_database.py               # 建表；部署或 Job 前执行
   _provide_akshare_calendar.py    # 演进期可保留，逻辑迁入 providers + jobs + storage
