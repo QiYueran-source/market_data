@@ -47,7 +47,6 @@ def jobinfo_to_email_body(job_info: JobInfo) -> str:
     finished = job_info['finished_at']
     finished_s = _format_dt(finished) if isinstance(finished, dt.datetime) else str(finished)
     success = job_info['success']
-    status = '成功' if success else '失败'
     err = _format_error(job_info['error'])
     write_times = job_info['write_times']
     write_failed_times = job_info['write_failed_times']
@@ -58,7 +57,6 @@ def jobinfo_to_email_body(job_info: JobInfo) -> str:
     lines = [
         f'任务: {name}',
         f'完成时间: {finished_s}',
-        f'状态: {status}',
         f'写入数据库次数: {write_times}',
         f'写入数据库失败次数: {write_failed_times}',
         f'总获取次数: {times}',

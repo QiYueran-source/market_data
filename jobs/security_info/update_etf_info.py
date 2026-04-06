@@ -112,8 +112,8 @@ def run()->JobInfo:
             'total_fetch_times': None,
             'fallback_records': None,
             'additional_info': {
-                'msg':'未满足更新条件',
-                'days_interval': days_interval, 
-                'is_trade_date': is_trade_date}
+                '消息':'未满足更新条件',
+                '距离下次更新还剩': f'{max(0, UPDATE_INTERVAL - days_interval)} 天', 
+                '是否为交易日': '是' if is_trade_date else '否'}
             }
         return info
