@@ -2,6 +2,7 @@
 schema工具
 
 Field: 字段信息类，用于schema中定义每一个字段  
+col: 字段信息类构造函数，用于方便的构造字段信息类  
 TableSchema: 表信息类，用于定义表，作为provider，writer和db模块的桥梁。  
 '''
 # 标准库
@@ -25,20 +26,17 @@ class Field(NamedTuple):
     - name: 字段名
     - dtype: 字段类型(数据类型，如np.int32, np.float32, np.float64, np.str_, np.datetime64)
     - sql_type: 字段在数据库中的类型(sql类型)
-    - default: 字段默认值
     - pk: 是否为主键
     '''
     name: str
     dtype: Any
     sql_type: str
-    default: Optional[Any]
     pk: bool
 
 def col(
     name:str, 
     dtype:Any, 
     sql_type:str, 
-    default:Optional[Any], 
     pk:bool = False
 ) -> Field:
     '''
@@ -48,7 +46,6 @@ def col(
         name=name,
         dtype=dtype,
         sql_type=sql_type,
-        default=default,
         pk=pk
     )
 

@@ -10,8 +10,8 @@ AKSHARE_TRADE_CALENDAR_SCHEMA = TableSchema(
     database_name='trade_calendar.db',
     table_name='akshare_trade_calendar',
     schema=[
-        col('calendar_date', np.datetime64, 'TEXT', None, True),
-        col('is_open', np.int8, 'INTEGER', 0, False)
+        col('calendar_date', np.str_, 'TEXT', True),
+        col('is_open', np.int8, 'INTEGER', False)
     ]
 )
 

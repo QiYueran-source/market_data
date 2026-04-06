@@ -6,7 +6,9 @@
 该文件约定：  
 - 库   
 - 表  
-- 字段：名称，类型，默认值，注释
+- 字段：名称，类型，注释，主键，最终兜底值（任务或 Provider 在异常/降级时的填充约定；**不是** SQLite 建表语句里的 `DEFAULT`）
+
+**说明**：`build_database.py` 按 `TableSchema` 生成的 DDL **不包含**列级 `DEFAULT`；`schema/` 里 `col(..., default=...)` 中的默认值由代码层使用，与上表「最终兜底值」不必逐列相同，以实际实现为准。
 
 ## 库
 
@@ -18,18 +20,18 @@
 ### trade_calendar库
 #### akshare_trade_calendar表  
 
-| 字段名 | 类型 | 默认值 | 注释 | 主键 | 最终兜底值 |
-| ------ | ---- | ------ | ---- | ------ | ------ |
-| calendar_date | TEXT | Null  | 日历时间，格式为yyyy-mm-dd，所有日期 | True | today |
-| is_open | int | 0 | 是否交易日，1：是，0：否 | False | -1 |
+| 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
+| ------ | ---- | ---- | ---- | ------ |
+| calendar_date | TEXT | 日历时间，格式为yyyy-mm-dd，所有日期 | True | today |
+| is_open | int | 是否交易日，1：是，0：否 | False | -1 |
 
 
 ### security_info库
 #### etf_info表  
 
-| 字段名 | 类型 | 默认值 | 注释 | 主键 | 最终兜底值 |
-| ------ | ---- | ------ | ---- | ------ | ------ |
-| code | TEXT | Null | ETF在证券市场上代码，如 159718 (无后缀) | 888888 |  
-| name | TEXT | 未知ETF | ETF名称 | False | 未知ETF |
-| exchange | TEXT | 未知交易所 | ETF所在交易所，如SH，SZ | False | 未知交易所 |
-| last_update_date | TEXT | 2026-04-06 | 最后更新日期，格式为yyyy-mm-dd，每次更新后覆盖 | False | 上次更新的日期 |
+| 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
+| ------ | ---- | ---- | ---- | ------ |
+| code | TEXT | ETF在证券市场上代码，如 159718 (无后缀) | True | 888888 |
+| name | TEXT | ETF名称 | False | 未知ETF |
+| exchange | TEXT | ETF所在交易所，如SH，SZ | False | 未知交易所 |
+| last_update_date | TEXT | 最后更新日期，格式为yyyy-mm-dd，每次更新后覆盖 | False | 上次更新的日期 |
