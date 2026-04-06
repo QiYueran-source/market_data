@@ -5,6 +5,9 @@
 from utils import add_root_path
 add_root_path()
 
+# sys
+import sys
+
 # 导入邮件工具
 from utils.emails import jobinfo_to_email_body, send_email
 
@@ -39,8 +42,8 @@ def main():
             logger.info(f'{job_name} 执行成功，信息: {info}')
             success_jobs_nums += 1
         except Exception as e:
-            logger.exception(f'{job_name} 执行时遇到未预期错误，错误信息: {e}')
-            raise e
+            logger.exception(f'{job_name} 执行时遇到未预期错误，跳过执行，错误信息: {e}')
+            continue
     
     # 发送邮件（主题与正文由模板生成）
     subject = '交易日历更新统计'
@@ -53,4 +56,4 @@ def main():
         logger.exception(f'发送邮件遇到错误，错误信息:{e}')
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
