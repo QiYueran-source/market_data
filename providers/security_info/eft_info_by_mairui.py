@@ -135,12 +135,13 @@ def fetch_and_clean()->Tuple[pd.DataFrame, Counter]:
     获取ETF信息并清洗
     '''
     records = Counter()
+    last_update_date = dt.date.today().strftime('%Y-%m-%d')
     final_fallback_df = pd.DataFrame(
         {
             'code': ['888888'],
             'name': ['未知ETF'],
             'exchange': ['未知交易所'],
-            'last_update_date': [dt.date.today().strftime('%Y-%m-%d')],
+            'last_update_date': [last_update_date],
         }
     )
     try:

@@ -18,7 +18,7 @@
 ### trade_calendar库
 #### akshare_trade_calendar表  
 
-| 字段名 | 类型 | 默认值 | 注释 | 主键 | 兜底值 |
+| 字段名 | 类型 | 默认值 | 注释 | 主键 | 最终兜底值 |
 | ------ | ---- | ------ | ---- | ------ | ------ |
 | calendar_date | TEXT | Null  | 日历时间，格式为yyyy-mm-dd，所有日期 | True | today |
 | is_open | int | 0 | 是否交易日，1：是，0：否 | False | -1 |
@@ -27,9 +27,9 @@
 ### security_info库
 #### etf_info表  
 
-| 字段名 | 类型 | 默认值 | 注释 | 主键 | 兜底值 |
+| 字段名 | 类型 | 默认值 | 注释 | 主键 | 最终兜底值 |
 | ------ | ---- | ------ | ---- | ------ | ------ |
 | code | TEXT | Null | ETF在证券市场上代码，如 159718 (无后缀) | 888888 |  
 | name | TEXT | 未知ETF | ETF名称 | False | 未知ETF |
 | exchange | TEXT | 未知交易所 | ETF所在交易所，如SH，SZ | False | 未知交易所 |
-| last_update_date | TEXT | 2026-04-06 | 最后更新日期，格式为yyyy-mm-dd，每次更新后覆盖 | False | today |
+| last_update_date | TEXT | 2026-04-06 | 最后更新日期，格式为yyyy-mm-dd，每次更新后覆盖 | False | 上次更新的日期 |
