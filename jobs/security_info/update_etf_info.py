@@ -64,6 +64,7 @@ def run()->JobInfo:
     is_trade_date = stock_api_trade_calendar.is_trade_date(dt.date.today())
     condition = (days_interval > UPDATE_INTERVAL) and (is_trade_date ^ UPDATE_ON_CLOSED_DAYS)
 
+    # 条件满足，更新ETF信息
     if condition:
         try:
             df, fallback_records, fetch_times = provide()
@@ -77,6 +78,7 @@ def run()->JobInfo:
             success = False
             error = e
         except BufferWriteError as e:
+            write_times += 1
             write_failed_times += 1
             logger.exception('写入数据库失败')
             success = False
@@ -98,6 +100,7 @@ def run()->JobInfo:
                 'additional_info': {}
             }
             return info
+    # 条件不满足，仅返回JobInfo信息
     else:
         info:JobInfo = {
             'job_name': 'update_etf_info',

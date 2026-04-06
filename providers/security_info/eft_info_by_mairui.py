@@ -17,11 +17,11 @@ import requests
 from typing import List, Dict, Tuple
 from collections import Counter
 from dotenv import load_dotenv
-load_dotenv('.env')
+load_dotenv()
 
 # 工具
 from providers.provider_utils import limit, retry
-from utils.schema import TableSchema, validate
+from utils.schema import validate
 from schema.security_info import ETF_INFO_SCHEMA
 from db.api.security_info import etf_info
 
@@ -45,7 +45,6 @@ logger = logging.getLogger('security_info.eft_info_by_mairui')
 from exceptions.api_error.base_error import NotFoundError, BadRequestError
 from exceptions.api_error.mairui_error import (
     ApiError,
-    MairuiError,
     MairuiTokenEmptyError,
     EtfListJsonDecodeError,
     EtfListFormatError,
@@ -131,7 +130,7 @@ def _handle_error()->pd.DataFrame:
     fallback_df = etf_info.get_all_etf_info()
     return fallback_df
 
-def fetch_and_clean():
+def fetch_and_clean()->Tuple[pd.DataFrame, Counter]:
     '''
     获取ETF信息并清洗
     '''
@@ -172,8 +171,23 @@ def fetch_and_clean():
 
 def provide()->Tuple[pd.DataFrame, Counter, int]:
     '''
-    提供ETF信息
+    提供ETF信息  
+
+    返回：
+    - pd.DataFrame: ETF信息
+    - Counter: 兜底记录，key:兜底原因，value:兜底次数
+    - int: 总获取次数 1次
     '''
-    df, records = fetch_and_clean()
-    return df, records, 1
-   
+    # 总兜底计数器，用于汇总所有兜底记录  
+    provide_total_fallback_records = Counter()
+
+    # 总次数计数器
+    total_fetch_times = 0
+
+    # 获取数据与兜底记录  
+    df, fallback_records = fetch_and_clean()
+    provide_total_fallback_records.update(fallback_records)
+    total_fetch_times += 1
+
+    # 返回数据与总兜底记录  
+    return df, provide_total_fallback_records, total_fetch_times
