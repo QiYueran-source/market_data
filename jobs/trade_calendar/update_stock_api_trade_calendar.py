@@ -45,24 +45,25 @@ def run()->JobInfo:
     '''
     total_fallback_records = Counter()
     total_fetch_times = 0
-    today = dt.date.today()
+    now_time = dt.datetime.now()
     success = True
     error = None
+    write_times = 0
+    write_failed_times = 0
     try:
-        df, fallback_records, fetch_times = trade_calendar_by_stock_api.provide(today)
+        df, fallback_records, fetch_times = trade_calendar_by_stock_api.provide(dt.date.today())
         total_fallback_records.update(fallback_records) # 汇总所有兜底记录  
         total_fetch_times += fetch_times # 汇总总获取次数
         stock_api_trade_calendar_buffer.append(df) # 写入缓存
         stock_api_trade_calendar_buffer.flush() # 刷新缓存
-    except ApiError as e:
-        logger.exception('API 请求失败')
-        success = False
-        error = e
+        write_times += 1
     except ValidError as e:
-        logger.exception('校验失败，未写入缓存')
+        logger.exception('append到buffer过程中校验失败，未写入缓存')
         success = False
         error = e
     except BufferWriteError as e:
+        write_times += 1
+        write_failed_times += 1
         logger.exception('写入数据库失败')
         success = False
         error = e
@@ -73,9 +74,11 @@ def run()->JobInfo:
     finally:
         info:JobInfo = {
             'job_name': 'update_stock_api_trade_calendar',
-            'finished_at': dt.datetime.now(),
+            'finished_at': now_time,
             'success': success,
             'error': error,
+            'write_times': write_times,
+            'write_failed_times': write_failed_times,
             'total_fetch_times': total_fetch_times,
             'fallback_records': dict(total_fallback_records),
             'additional_info': {}

@@ -33,6 +33,7 @@ logger = get_logger('trade_calendar_by_stock_api')
 # 异常
 from exceptions.api_error.base_error import BadRequestError, NotFoundError
 from exceptions.api_error.stock_api_error import (
+    ApiError,
     StockApiQuotaExhaustedError,
     UnexpectedApiCodeError,
     DataEmptyError,
@@ -54,7 +55,7 @@ _FALLBACK_KEY_FINAL = 'FETCH_FAIL_FINAL_MINUS_ONE'  # API + 兜底查询均失�
 _FALLBACK_KEY_VALIDATE = 'VALIDATE_FAIL_MINUS_ONE'  # 校验失败，is_open=-1
 
 
-@retry((UnexpectedApiCodeError,DataEmptyError,WrongDataError,WrongIsOpenRangeError))
+@retry((BadRequestError))
 @limit('stock_api_trade_calendar')
 def fetch(date: dt.date | str) -> int:
     '''用requests获取stock_api的交易日历数据'''
@@ -126,41 +127,42 @@ def fetch_and_clean(date: dt.date | str)->Tuple[pd.DataFrame,Counter]:
     返回：
     - pd.DataFrame: 交易日历数据
     - Counter: 兜底记录，key:兜底原因，value:兜底次数（仅含本次调用中发生过的项）
+
     '''
     records = Counter()
+    final_fallback_df = pd.DataFrame(
+        {
+            'calendar_date': [dt.date.today()],
+            'is_open': [-1]
+        }
+    )
     try:
         is_open = fetch(date)
         df = pd.DataFrame({
             'calendar_date': [date],
             'is_open': [is_open]
         })
-    except Exception as e:
-        # 配额用尽、URL 不存在等不应再走本地兜底，交给上层 job 处理
-        if isinstance(e, (StockApiQuotaExhaustedError, NotFoundError)):
-            logger.exception('Stock API 配额用尽或资源不存在(404)，不进入兜底')
-            raise
+    except ApiError:
         logger.exception('API 拉取失败，进入兜底逻辑')
         try:
             df = _handle_error()
             records[_FALLBACK_KEY_AKSHARE] += 1
-        except Exception:
+        except Exception as e:
             logger.exception(
-                '兜底查询失败，启用最终逻辑：今日 is_open=-1，请及时处理',
+                f'兜底查询失败: 启用最终逻辑：今日 is_open=-1，请及时处理',
             )
-            df = pd.DataFrame({
-                'calendar_date': [dt.date.today()],
-                'is_open': [-1]
-            })
+            df = final_fallback_df
             records[_FALLBACK_KEY_FINAL] += 1
+    except Exception as e:
+        # 其他异常，交给上层job处理
+        raise e
+
     # 验证df
     try:
         validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)
     except Exception:
         logger.exception('校验失败，采用兜底：今日 is_open=-1，请及时处理')
-        df = pd.DataFrame({
-            'calendar_date': [dt.date.today()],
-            'is_open': [-1]
-        })
+        df = final_fallback_df
         records[_FALLBACK_KEY_VALIDATE] += 1
     return df, records
 

@@ -4,13 +4,19 @@
 - get_trade_calendar_by_date() 获取一个日期的交易日历数据  
 - is_trade_date() 判断一个日期是不是交易日
 '''
+# 库
 import os
 import datetime as dt
 import pandas as pd
 import sqlite3
+
+# 数据库常量
 from db import DB_DIR
 DB_NAME = 'trade_calendar.db'
 TABLE_NAME = 'stock_api_trade_calendar'
+
+# 兜底
+FALLBACK_IS_OPEN = -1
 
 def get_trade_calendar(
     start_date: dt.date | str = '1990-01-01', 
@@ -53,7 +59,7 @@ def get_trade_calendar_by_date(
     返回：
     - pandas.DataFrame: 交易日历数据  
         - calendar_date : str 日期   
-        - is_open : 0表示非交易日，1表示交易日
+        - is_open : 0表示非交易日，1表示交易日, -1兜底，认为是非交易日
     '''
     if isinstance(date, str):
         date = dt.datetime.strptime(date, '%Y-%m-%d').date()
@@ -67,7 +73,8 @@ def is_trade_date(
     date: dt.date | str,
 ) -> bool:
     '''
-    判断指定日期是否为交易日
+    判断指定日期是否为交易日   
+    如果查询结果为-1，则认为是非交易日
 
     参数：
     - date: 日期，格式为yyyy-mm-dd

@@ -48,8 +48,11 @@ cp .env.example .env
 crontab -e
 ```
 
-添加：  
+添加（路径与解释器按本机修改，示例为项目根 `mktdata`）：  
 ```bash
-# 每天9点更新交易日历
-0 9 * * *  cd /path/to/pj && /path/to/python /path/to/update_trade_calendar.py  
+# 每天 9:01 更新交易日历（若需整点可改为 0 9）
+1 9 * * * cd /path/to/pj && /path/to/python /path/to/update_trade_calendar.py >> /path/to/pj/logs/cron_update_trade_calendar.log 2>&1
+
+# 每天 16:30 更新证券信息（如 ETF 列表）
+30 16 * * * cd /path/to/pj && /path/to/python /path/to/update_security_info.py >> /path/to/pj/logs/cron_update_security_info.log 2>&1
 ```

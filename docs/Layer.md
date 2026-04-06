@@ -95,6 +95,8 @@ mktdata/
       ...
     stock_api/
       ...
+    security_info/                # 如麦蕊 ETF 列表
+      eft_info_by_mairui.py
   storage/                        # Storage 层：Buffer 校验 + upsert 写库
     __init__.py
     buffer.py
@@ -103,10 +105,15 @@ mktdata/
       info.py
     trade_calendar/
       update_stock_api_trade_calendar.py
+    security_info/
+      update_etf_info.py
     ...
-  update_trade_calendar.py        # 可选：域级入口，JOBS_REGISTRY 顺序执行
-  schema/                         # 各库表结构定义（如 trade_calendar）；基于 utils.schema 拼装
+  update_trade_calendar.py        # 交易日历域入口，JOBS_REGISTRY 顺序执行
+  update_security_info.py         # 证券信息域入口（如 ETF），JOBS_REGISTRY 顺序执行
+  schema/                         # 各库表结构定义（如 trade_calendar、security_info）；基于 utils.schema 拼装
     trade_calendar/
+      ...
+    security_info/
       ...
   db/
   utils/

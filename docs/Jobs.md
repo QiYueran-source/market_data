@@ -8,7 +8,7 @@
 ## 入口约定
 
 - 每个 update 模块暴露 **`run()`**，无参或仅关键字参数（如日后按日期补数），由调度或聚合脚本调用；宜返回 **`JobInfo`**（见下节），便于域级入口发汇总邮件。
-- **域级入口**（项目根）：如 **`update_trade_calendar.py`**，内建有序 **`JOBS_REGISTRY`**（`job_name → run`），**`main()`** 按注册顺序依次执行；**cron** 宜指向该脚本或 `python -m` 等价入口。
+- **域级入口**（项目根）：按业务域拆分脚本，内建有序 **`JOBS_REGISTRY`**（`job_name → run`），**`main()`** 按注册顺序依次执行；**cron** 宜分别指向各域入口，例如 **`update_trade_calendar.py`**（交易日历）、**`update_security_info.py`**（证券信息如 ETF），或使用 `python -m` 等价入口。
 - 运行前需保证 **`PYTHONPATH` 含项目根**（或先调用 **`utils.add_root_path()`**，与现有脚本一致）。
 
 ## 执行结果与通知（JobInfo）
@@ -23,4 +23,6 @@
 | ---- | ---- |
 | `jobs/job_utils/info.py` | **`JobInfo`**（`TypedDict`）定义 |
 | `jobs/trade_calendar/update_stock_api_trade_calendar.py` | 更新 `stock_api_trade_calendar` 表；**`run()`** 返回 **`JobInfo`** |
-| `update_trade_calendar.py` | 注册并顺序执行上述等交易日历 job；汇总 **`JobInfo`** 后发邮件 |
+| `jobs/security_info/update_etf_info.py` | 更新 `etf_info` 表（麦蕊等）；**`run()`** 可按间隔与交易日历条件跳过，返回 **`JobInfo`** |
+| `update_trade_calendar.py` | 交易日历域：注册并顺序执行 job；汇总 **`JobInfo`** 后发邮件 |
+| `update_security_info.py` | 证券信息域：注册并顺序执行 job（如 ETF）；汇总 **`JobInfo`** 后发邮件 |

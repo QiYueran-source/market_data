@@ -49,6 +49,8 @@ def jobinfo_to_email_body(job_info: JobInfo) -> str:
     success = job_info['success']
     status = '成功' if success else '失败'
     err = _format_error(job_info['error'])
+    write_times = job_info['write_times']
+    write_failed_times = job_info['write_failed_times']
     times = job_info['total_fetch_times']
     fallback = _format_fallback_records(job_info['fallback_records'])
     extra = job_info['additional_info']
@@ -57,6 +59,8 @@ def jobinfo_to_email_body(job_info: JobInfo) -> str:
         f'任务: {name}',
         f'完成时间: {finished_s}',
         f'状态: {status}',
+        f'写入数据库次数: {write_times}',
+        f'写入数据库失败次数: {write_failed_times}',
         f'总获取次数: {times}',
         '兜底记录:',
         fallback,

@@ -4,5 +4,6 @@ schema库
 
 '''
 import schema.trade_calendar as trade_calendar
+import schema.security_info as security_info
 
-__all__ = ['trade_calendar']
+__all__ = ['trade_calendar', 'security_info']
