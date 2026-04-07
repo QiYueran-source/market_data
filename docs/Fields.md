@@ -35,3 +35,24 @@
 | name | TEXT | ETF名称 | False | 未知ETF |
 | exchange | TEXT | ETF所在交易所，如SH，SZ | False | 未知交易所 |
 | last_update_date | TEXT | 最后更新日期，格式为yyyy-mm-dd，每次更新后覆盖 | False | 上次更新的日期 |
+
+
+### minutely_trade_data库
+#### etf_minutely_trade_data_<code>表 
+
+注意，API返回值的单位需要转换，见API.md中的字段说明。
+
+| 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
+| ------ | ---- | ---- | ---- | ------ |
+| trade_datetime | TEXT | 交易时间，格式为yyyy-mm-dd hh:mm:ss | True | 当前时间 |
+| price | REAL | 交易价格(元) | False | 0.0 |
+| volume | INTEGER | 交易量(股) | False | 0.0 |
+| amount | REAL | 交易金额(元) | False | 0.0 |
+| original_volume | INTEGER | 原始交易量(股) | False | 0.0 |
+| up_down | REAL | 涨跌额(元) | False | 0.0 |
+| up_down_rate | REAL | 涨跌率 | False | 0.0 |   
+| amplitude | REAL | 振幅 | False | 0.0 |  
+| turnover_rate | REAL | 换手率 | False | 0.0 |    
+| pe_ratio | REAL | 市盈率 | False | 0.0 |  
+| pb_ratio | REAL | 市净率 | False | 0.0 |    
+
