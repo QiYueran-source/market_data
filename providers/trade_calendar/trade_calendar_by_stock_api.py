@@ -24,7 +24,7 @@ from schema.trade_calendar import STOCKAPI_TRADE_CALENDAR_SCHEMA
 from schema.trade_calendar import AKSHARE_TRADE_CALENDAR_SCHEMA
 
 # api
-from db.api.trade_calendar import stock_api_trade_calendar
+from db.api.trade_calendar import akshare_trade_calendar
 
 # 日志
 from utils import get_logger
@@ -111,7 +111,7 @@ def _handle_error()->pd.DataFrame:
     兜底逻辑，用akshare表中的数据作为备选，处理错误
     '''
     try:
-        df = stock_api_trade_calendar.get_trade_calendar_by_date(dt.date.today())
+        df = akshare_trade_calendar.get_trade_calendar_by_date(dt.date.today())
     except Exception as e:
         raise SQLiteError(f'sqlite兜底查询失败: {e}') from e
     if df.empty:
