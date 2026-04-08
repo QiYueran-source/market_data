@@ -41,6 +41,9 @@
 #### etf_minutely_trade_data_<code>表 
 
 注意，API返回值的单位需要转换，见API.md中的字段说明。
+注意：分钟数据按「每标的一张表」设计（表名已编码证券代码 `<code>`）。因此 **推荐不在表内重复保存 `code` 列**；若处于迁移阶段或为兼容历史实现，也可临时保留 `code` 列，但需确保：
+- schema、建表约束（PRIMARY KEY/UNIQUE）与写库 upsert 的 conflict target 一致
+- `Buffer` 的主键列与实际表约束一致（否则会触发 `ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint`）
 
 | 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
 | ------ | ---- | ---- | ---- | ------ |
@@ -49,10 +52,11 @@
 | volume | INTEGER | 交易量(股) | False | 0.0 |
 | amount | REAL | 交易金额(元) | False | 0.0 |
 | original_volume | INTEGER | 原始交易量(股) | False | 0.0 |
-| up_down | REAL | 涨跌额(元) | False | 0.0 |
-| up_down_rate | REAL | 涨跌率 | False | 0.0 |   
+| yesterday_close_price | REAL | 昨收价(元) | False | 0.0 |  
+| up_down | REAL | 相对昨收盘涨跌额(元) | False | 0.0 |
+| up_down_rate | REAL | 相对昨收盘涨跌率 | False | 0.0 |   
 | amplitude | REAL | 振幅 | False | 0.0 |  
 | turnover_rate | REAL | 换手率 | False | 0.0 |    
 | pe_ratio | REAL | 市盈率 | False | 0.0 |  
-| pb_ratio | REAL | 市净率 | False | 0.0 |    
+ 
 

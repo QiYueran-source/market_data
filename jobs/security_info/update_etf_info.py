@@ -53,7 +53,6 @@ def run()->JobInfo:
     '''
     total_fallback_records = Counter()
     total_fetch_times = 0
-    now_time = dt.datetime.now()
     success = True
     error = None
     write_times = 0
@@ -68,38 +67,92 @@ def run()->JobInfo:
     if condition:
         try:
             df, fallback_records, fetch_times = provide()
-            total_fallback_records.update(fallback_records) # 汇总所有兜底记录  
-            total_fetch_times += fetch_times # 汇总总获取次数
-            etf_info_buffer.append(df) # 写入缓存
-            etf_info_buffer.flush() # 刷新缓存
-            write_times += 1
-        except ValidError as e:
-            logger.exception('append到buffer过程中校验失败，未写入缓存')
-            success = False
-            error = e
-        except BufferWriteError as e:
-            write_times += 1
-            write_failed_times += 1
-            logger.exception('写入数据库失败')
-            success = False
-            error = e
+            total_fallback_records.update(fallback_records)
+            total_fetch_times += fetch_times
         except Exception as e:
             logger.exception('未预期错误')
             success = False
             error = e
-        finally:
-            info:JobInfo = {
-                'job_name': 'update_etf_info',
-                'finished_at': now_time,
-                'success': success,
-                'error': error,
-                'write_times': write_times,
-                'write_failed_times': write_failed_times,
-                'total_fetch_times': total_fetch_times,
-                'fallback_records': dict(total_fallback_records),
-                'additional_info': {}
-            }
+            info = JobInfo(
+                job_name='update_etf_info',
+                finished_at=dt.datetime.now(),
+                success=success,
+                error=error,
+                write_times=write_times,
+                write_failed_times=write_failed_times,
+                total_fetch_times=total_fetch_times,
+                fallback_records=dict(total_fallback_records),
+                additional_info={'消息': 'provide过程中遇到未预期错误，未写入缓存'}
+            )
             return info
+        
+        try:
+            flushed = etf_info_buffer.append(df)
+            if flushed:
+                write_times += 1
+        except ValidError as e:
+            logger.exception('append到buffer过程中校验失败，未写入缓存')
+        except BufferWriteError as e:
+            write_times += 1
+            write_failed_times += 1
+            logger.exception('写入数据库失败')
+        except Exception as e:
+            logger.exception('未预期错误')
+            success = False
+            error = e
+            info = JobInfo(
+                job_name='update_etf_info',
+                finished_at=dt.datetime.now(),
+                success=success,
+                error=error,
+                write_times=write_times,
+                write_failed_times=write_failed_times,
+                total_fetch_times=total_fetch_times,
+                fallback_records=dict(total_fallback_records),
+                additional_info={'消息': 'append过程中遇到未预期错误，未写入缓存'}
+            )
+            return info
+
+        # 最后flush缓存
+        try:
+            flushed = etf_info_buffer.flush()
+            if flushed:
+                write_times += 1
+        except BufferWriteError as e:
+            write_times += 1
+            write_failed_times += 1
+            logger.exception('写入数据库失败')
+        except Exception as e:
+            logger.exception('未预期错误')
+            success = False
+            error = e
+            info = JobInfo(
+                job_name='update_etf_info',
+                finished_at=dt.datetime.now(),
+                success=success,
+                error=error,
+                write_times=write_times,
+                write_failed_times=write_failed_times,
+                total_fetch_times=total_fetch_times,
+                fallback_records=dict(total_fallback_records),
+                additional_info={'消息': 'flush过程中遇到未预期错误，未写入数据库'}
+            )
+            return info
+        
+        info = JobInfo(
+            job_name='update_etf_info',
+            finished_at=dt.datetime.now(),
+            success=success,
+            error=error,
+            write_times=write_times,
+            write_failed_times=write_failed_times,
+            total_fetch_times=total_fetch_times,
+            fallback_records=dict(total_fallback_records),
+            additional_info={'消息': '更新ETF信息成功'}
+        )
+        return info
+        
+
     # 条件不满足，仅返回JobInfo信息
     else:
         info:JobInfo = {

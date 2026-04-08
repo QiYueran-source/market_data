@@ -13,8 +13,12 @@
 
 ## 执行结果与通知（JobInfo）
 
-- 各 **`run()`** 宜返回 **`JobInfo`**（见 **`jobs/job_utils/info.py`**）：含 **`job_name`**、**`finished_at`**、**`success`**、**`error`**（`Exception | None`）、**`total_fetch_times`**、**`fallback_records`**、**`additional_info`** 等，供域级入口拼 **汇总邮件** 或落日志。
-- Job 内对失败路径使用 **`logger.exception`** 记录栈后，可将 **`success=False`** 与 **`error`** 写入 **`JobInfo` 并返回**（不必再向编排层上抛），编排层按 **`info['success']`** 统计成功数；**未捕获的编程错误**仍可能冒泡，由入口 **`try/except`** 决定是否中止或转成失败 **`JobInfo`**。
+- 各 **`run()`** 宜返回 **`JobInfo`**（见 **`jobs/job_utils/info.py`**）：含 **`job_name`**、**`finished_at`**、**`success`**、**`error`**、**`write_times`**、**`write_failed_times`**、**`total_fetch_times`**、**`fallback_records`**、**`additional_info`** 等，供域级入口拼 **汇总邮件** 或落日志。
+- **字段分工（约定）**：
+  - **`error`**：仅承载 **未预期** 异常（通常 **`success=False`** 且 run 提前返回）。**不**把 **`ValidError`**、**`BufferWriteError`** 或已在 Provider 内处理的业务失败再塞进 **`error`**。
+  - **`write_failed_times`**：Buffer **校验失败**、**写库失败**等可预期失败次数；**`fallback_records`**：Provider 侧兜底次数（按原因 key 聚合）。
+  - 编排与告警应同时查看 **`error`**、**`write_failed_times`**、**`fallback_records`**，避免「无 **`error`** 即一切正常」的误判。
+- 凡失败路径宜用 **`logger.exception`** 留栈；**未捕获的编程错误**仍可能冒泡，由入口 **`try/except`** 决定是否中止或转成失败 **`JobInfo`**。
 - 纯文本邮件正文可由 **`utils/emails/template.py` → `jobinfo_to_email_body()`** 将单条 **`JobInfo`** 格式化为一段；多 job 时在入口中拼接。发信 **`send_email()`** 仍可能抛出 **`EmailError`**，入口宜 **`try/except EmailError`** **仅记日志、不二次发信**（见 **`docs/Error.md`**）。
 
 ## 当前示例

@@ -131,7 +131,7 @@ mktdata/
 | ---- | ---- | -------- |
 | Provider | `providers/<源名>/`、`providers/provider_utils/` | 限流、重试、拉数、对齐 TableSchema（含共享归一化调用） |
 | Storage | `storage/` | 校验、`buffer`、upsert、事务 |
-| Job | `jobs/<库>/update_*.py`、`run()`；`jobs/job_utils/`（如 **`JobInfo`**） | 读配置、串联 Provider → `Buffer`；**`run()`** 可返回 **`JobInfo`** 供域入口汇总 |
+| Job | `jobs/<库>/update_*.py`、`run()`；`jobs/job_utils/`（如 **`JobInfo`**） | 读配置、串联 Provider → `Buffer`；**`run()`** 返回 **`JobInfo`**（**`error`** 仅未预期异常；可预期写库/校验失败见 **`write_failed_times`**，Provider 兜底见 **`fallback_records`**，详见 **`docs/Jobs.md`**）供域入口汇总 |
 
 ### 配置与限流参数
 

@@ -89,10 +89,14 @@ class Buffer:
         rows = self._df_to_sql_params(df, cols)
         conn.executemany(sql, rows)
 
-    def flush(self) -> None:
-        '''将缓存中的各 DataFrame 依次 upsert 写入数据库，然后清空缓存。'''
+    def flush(self) -> bool:
+        '''
+        将缓存中的各 DataFrame 依次 upsert 写入数据库，然后清空缓存。
+
+        - 返回是否有数据写入数据库  
+        '''
         if not self._cache:
-            return
+            return False
         db_path = os.path.join(DB_DIR, self.schema.database_name)
         try:
             with sqlite3.connect(db_path) as conn:
@@ -102,7 +106,7 @@ class Buffer:
                 self._current_size = 0
         except Exception as e:
             raise BufferWriteError(f'写入数据库失败: {e}') from e
-        
+        return True
 
     def append(self, df: pd.DataFrame) -> bool:
         '''
@@ -112,15 +116,24 @@ class Buffer:
 
         校验成功后，添加进缓存，并更新缓存大小
         如果缓存大小大于等于缓存大小，则清空缓存，并写入数据库
+
+        返回是否flush
         '''
+        flushed = False
+
+        # 校验df是否符合schema
         try:
             validate(df, self.schema)
         except ValidError as e:
             raise ValidError(f'缓存校验失败: {e}') from e
 
+        # 添加进缓存，并更新缓存大小
         self._cache.append(df.copy())
         self._current_size += len(df)
 
+        # 如果缓存大小大于等于缓存大小，则清空缓存，并写入数据库
         if self._current_size >= self.buffer_size:
-            self.flush()
-        return True
+            flushed = self.flush()
+
+        # 返回是否flush
+        return flushed

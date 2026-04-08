@@ -149,9 +149,50 @@ Exception
 3. **`validate(df, STOCKAPI_TRADE_CALENDAR_SCHEMA)`**：失败时 **`except Exception`**（含 **`ValidError`**），**`logger.exception`** 后降级为 **`is_open = -1`**，**`records['VALIDATE_FAIL_MINUS_ONE'] += 1`**。
 4. **`provide()`**：调用 **`fetch_and_clean()`**，返回 **`(DataFrame, 兜底统计 Counter, 拉取次数 int)`**，供 Job 写入 **`Buffer`**。
 
-**Job 层**：`jobs/trade_calendar/update_stock_api_trade_calendar.py` → **`run()`** 串联 **`provide()`** 与 **`Buffer.append` / `flush`**。**`provide()` 路径上 `ApiError` 已在 `fetch_and_clean` 内消化或已降级为 DataFrame，通常不会再以 `ApiError` 形式到达 `run()`**。`run()` 显式捕获：**`ValidError`**（**`append` 前校验**）、**`BufferWriteError`**（**`flush` 写库**），以及 **`Exception`**（**`provide` 上抛的非 `ApiError` 等未预期错误**）；**`logger.exception`** 后将 **`success=False`** 与 **`error`** 写入 **`JobInfo` 并返回**，供 **`update_trade_calendar.main`** 等编排入口汇总邮件。
+**Job 层**：`jobs/trade_calendar/update_stock_api_trade_calendar.py` → **`run()`** 串联 **`provide()`** 与 **`Buffer.append` / `flush`**。**`provide()` 路径上 `ApiError` 已在 `fetch_and_clean` 内消化或已降级为 DataFrame，通常不会再以 `ApiError` 形式到达 `run()`**。
+- **`ValidError`**（**`append` 前校验**）、**`BufferWriteError`**（**`append` 内触发 flush** 或 **末尾 `flush`**）：**`logger.exception`**，递增 **`write_failed_times`**（及必要时 **`write_times`**），**`JobInfo.error` 保持 `None`**。
+- **`provide()`** 等路径上的 **未预期 `Exception`**：**`logger.exception`**，**`success=False`**，**`error`** 写入 **`JobInfo`** 并提前返回。
+- 编排入口汇总邮件时除 **`error`** 外须关注 **`write_failed_times`**、**`fallback_records`**（见 **`docs/Jobs.md`**）。
 
 **语义**：`is_open == -1` 表示「API 与本地兜底均未得到可信值，或出口前校验仍失败」，下游需单独处理。
+
+## 分钟交易数据（minutely_trade_data）常见异常与解读
+
+分钟数据任务一般以「交易时段内循环拉取 + 写入 Buffer」的方式运行（如 `jobs/minutely_trade_data/update_minutely_trade_data_morning.py`、`jobs/minutely_trade_data/update_minutely_trade_data_afternoon.py`）。因此排查时建议同时查看：
+- **日志**：是否发生了 `logger.exception`（含完整栈）
+- **JobInfo**：`error`（未预期异常）、`write_failed_times`（可预期写库/校验失败次数）、`fallback_records`（Provider 兜底统计）
+
+### 1）写库失败：`ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint`
+
+典型表现：`storage/buffer.py` → `flush()` 抛出 `BufferWriteError`，底层是 `sqlite3.OperationalError`，信息包含：
+`ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint`。
+
+根因：`Buffer` 使用 upsert（`INSERT ... ON CONFLICT (...) DO UPDATE`）写入 SQLite，但目标表上 **不存在与 conflict target 完全匹配的 PRIMARY KEY / UNIQUE 约束**。
+
+排查要点：
+- 确认分钟表建表 DDL 是否包含与 schema 主键一致的 **PRIMARY KEY/UNIQUE**（分钟表按「每标的一表」时，通常至少应对主键列建立唯一约束）
+- 若历史表结构已存在且缺少约束，SQLite 通常需要 **重建表**（新表带约束→拷贝数据→替换）而非简单 ALTER
+
+对应 JobInfo 语义：
+- 该类失败通常计入 `write_failed_times`；`error` 仍为 `None`（可预期失败，见 `docs/Jobs.md` 约定）
+
+### 2）Provider 侧异常：限流/状态码/格式错误
+
+分钟 Provider 会对 HTTP 状态码、JSON 解析、字段完整性做校验。常见现象是 Provider 内部记录异常栈后：
+- 返回兜底 DataFrame（例如全 0 或缺省值）
+- 并在 `fallback_records` 中累加原因 key（如「请求失败使用兜底」等）
+
+对应 JobInfo 语义：
+- 该类失败不一定导致 `error` 非空，应结合 `fallback_records` 判断降级次数与影响范围。
+
+### 3）DataFrame 校验失败：`ValidError`（FieldType/Name/PK 等）
+
+典型表现：`utils/schema/validator.py` 的 `validate(df, schema)` 抛出 `ValidError` 子类。
+
+根因：DataFrame 列集合或 dtype 与 `TableSchema` 不兼容（例如整型/浮点 dtype 不匹配，或列名缺失/多余）。
+
+对应 JobInfo 语义：
+- 该类失败通常会阻止写入 Buffer（或导致写入失败），应计入 `write_failed_times` 或在 Provider 内部降级并计入 `fallback_records`，具体以实现为准。
 
 ## 模块索引
 
@@ -169,8 +210,8 @@ Exception
 | `providers/security_info/eft_info_by_mairui.py` | 麦蕊 ETF 列表 `fetch` / `fetch_and_clean` / `provide` |
 | `exceptions/api_error/mairui_error.py` | **`MairuiError`** 及 ETF 列表相关子类 |
 | `db/api/security_info/etf_info.py` | **`etf_info`** 表查询与 **`get_latest_update_date`** 等 |
-| `jobs/job_utils/info.py` | **`JobInfo`**（任务执行结果，供邮件与日志） |
-| `jobs/trade_calendar/update_stock_api_trade_calendar.py` | `run()`：`provide` → `Buffer`；捕获 **`ValidError`** / **`BufferWriteError`** / **`Exception`**，**`logger.exception`** 后返回 **`success=False`** 的 **`JobInfo`**（**`ApiError` 一般在 `fetch_and_clean` 已处理**） |
+| `jobs/job_utils/info.py` | **`JobInfo`**（任务执行结果；**`error`** 仅未预期异常，可预期失败见 **`write_failed_times`** / **`fallback_records`**） |
+| `jobs/trade_calendar/update_stock_api_trade_calendar.py` | `run()`：`provide` → `Buffer`；**`ValidError`** / **`BufferWriteError`** → 计数 + 日志，**不**写入 **`error`**；未预期异常 → **`success=False`** + **`error`**（**`ApiError` 一般在 `fetch_and_clean` 已处理**） |
 | `jobs/security_info/update_etf_info.py` | `run()`：条件满足时 **`provide` → `Buffer`**；否则返回 **`JobInfo`**（部分字段 **`None`** 表示跳过） |
 | `exceptions/email_error.py` | `EmailError`、`EmailSendError`、`EnvVarEmptyError` |
 | `utils/emails/send.py` | **`send_email()`** 实现（可抛出 `EmailError` 子类） |

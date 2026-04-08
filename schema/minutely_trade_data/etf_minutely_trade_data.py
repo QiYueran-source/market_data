@@ -14,17 +14,18 @@ from utils.schema import col, TableSchema
 
 # 通用schema模板
 SCHEMA_TEMPLATE = [
+    # 不需要code字段，用表名区分  
     col('trade_datetime', np.str_, 'TEXT', True),
     col('price', np.float64, 'REAL', False),
-    col('volume', np.int32, 'INTEGER', False),
+    col('volume', np.int64, 'INTEGER', False),
     col('amount', np.float64, 'REAL', False),
-    col('original_volume', np.int32, 'INTEGER', False),
+    col('original_volume', np.int64, 'INTEGER', False),
+    col('yesterday_close_price', np.float64, 'REAL', False),
     col('up_down', np.float64, 'REAL', False),
     col('up_down_rate', np.float64, 'REAL', False),
     col('amplitude', np.float64, 'REAL', False),
     col('turnover_rate', np.float64, 'REAL', False),
     col('pe_ratio', np.float64, 'REAL', False),
-    col('pb_ratio', np.float64, 'REAL', False),
 ]
 
 def get_schema(code:str) -> TableSchema:
@@ -36,3 +37,13 @@ def get_schema(code:str) -> TableSchema:
 
 # 518800 华夏黄金ETF 
 MINUTELY_TRADE_DATA_518800 = get_schema('518800')
+
+# 大盘成长股
+MINUTELY_TRADE_DATA_159203 = get_schema('159203')
+
+
+# 证券-Schema映射
+ETF_CODE_SCHEMA_MAP = {
+    '518800': MINUTELY_TRADE_DATA_518800,
+    '159203': MINUTELY_TRADE_DATA_159203,
+}

@@ -55,4 +55,10 @@ crontab -e
 
 # 每天 16:30 更新证券信息（如 ETF 列表）
 30 16 * * * cd /path/to/pj && /path/to/python /path/to/update_security_info.py >> /path/to/pj/logs/cron_update_security_info.log 2>&1
+
+# 每天 9:30 启动分钟交易数据（早盘）
+30 9 * * * cd /path/to/pj && /path/to/python /path/to/update_minutely_trade_data_morning.py >> /path/to/pj/logs/cron_minutely_morning.log 2>&1
+
+# 每天 13:00 启动分钟交易数据（午盘/下午）
+0 13 * * * cd /path/to/pj && /path/to/python /path/to/update_minutely_trade_data_afternoon.py >> /path/to/pj/logs/cron_minutely_afternoon.log 2>&1
 ```
