@@ -1,5 +1,5 @@
 '''
-更新信息数据  
+更新早盘的分钟交易数据  
 '''
 # 添加根目录
 from utils import add_root_path
