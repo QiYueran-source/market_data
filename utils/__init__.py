@@ -6,6 +6,6 @@
 
 from utils.logs import get_logger
 from utils.set_path import add_root_path
-from utils.schema import TableSchema, Field, col
+from models.table_schema import TableSchema, Field, col
 
 __all__ = ['get_logger', 'add_root_path', 'TableSchema', 'Field', 'col']

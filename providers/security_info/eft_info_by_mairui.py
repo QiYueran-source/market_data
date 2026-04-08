@@ -21,7 +21,7 @@ load_dotenv()
 
 # 工具
 from providers.provider_utils import limit, retry
-from utils.schema import validate
+from models.table_schema import validate
 from schema.security_info import ETF_INFO_SCHEMA
 from db.api.security_info import etf_info
 

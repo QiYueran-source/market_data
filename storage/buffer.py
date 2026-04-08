@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 # 工具
-from utils.schema import TableSchema, validate
+from models.table_schema import TableSchema, validate
 
 # 常量
 from db import DB_DIR

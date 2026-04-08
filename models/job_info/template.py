@@ -4,7 +4,7 @@
 import datetime as dt
 import json
 
-from jobs.job_utils import JobInfo
+from models.job_info import JobInfo
 
 
 def _format_dt(value: dt.datetime) -> str:

@@ -32,13 +32,13 @@ Exception
 
 | 异常类 | 含义 | 抛出位置 |
 | ------ | ---- | -------- |
-| `PrimaryKeyMissingException` | 要求主键（`primary_key_required=True`）但 schema 中无任何 `pk=True` 字段 | `utils/schema/table_schema.py` → `TableSchema.__post_init__` |
+| `PrimaryKeyMissingException` | 要求主键（`primary_key_required=True`）但 schema 中无任何 `pk=True` 字段 | `models/table_schema/table_schema.py` → `TableSchema.__post_init__` |
 | `DuplicateColumnsError` | 表结构中字段名重复 | 同上 |
-| `FieldNotFoundError` | `get_field_by_name(name)` 时名称不在 schema 中 | `utils/schema/table_schema.py` → `TableSchema.get_field_by_name()` |
+| `FieldNotFoundError` | `get_field_by_name(name)` 时名称不在 schema 中 | `models/table_schema/table_schema.py` → `TableSchema.get_field_by_name()` |
 
 ## ValidError
 
-`ValidError` 为 DataFrame 与 `TableSchema` 校验基类，定义见 `exceptions/valid_error.py`。校验入口为 **`utils/schema/validator.py` → `validate(df, schema)`**；推荐 `from utils.schema import validate`（非 `valid()`）。
+`ValidError` 为 DataFrame 与 `TableSchema` 校验基类，定义见 `exceptions/valid_error.py`。校验入口为 **`models/table_schema/validator.py` → `validate(df, schema)`**；推荐 `from models.table_schema import validate`（非 `valid()`）。
 
 | 异常类 | 含义 | 抛出位置 |
 | ------ | ---- | -------- |
@@ -187,7 +187,7 @@ Exception
 
 ### 3）DataFrame 校验失败：`ValidError`（FieldType/Name/PK 等）
 
-典型表现：`utils/schema/validator.py` 的 `validate(df, schema)` 抛出 `ValidError` 子类。
+典型表现：`models/table_schema/validator.py` 的 `validate(df, schema)` 抛出 `ValidError` 子类。
 
 根因：DataFrame 列集合或 dtype 与 `TableSchema` 不兼容（例如整型/浮点 dtype 不匹配，或列名缺失/多余）。
 
@@ -203,19 +203,19 @@ Exception
 | `exceptions/buffer_error.py` | `BufferError`、`BufferWriteError` |
 | `exceptions/api_error/base_error.py` | `ApiError`、`NotFoundError`、`BadRequestError` |
 | `exceptions/api_error/stock_api_error.py` | `StockApiError`、`TradeCalendarError`、交易日历与兜底相关子类 |
-| `utils/schema/table_schema.py` | `TableSchema`、`Field`、`col` |
-| `utils/schema/validator.py` | `validate()` |
+| `models/table_schema/table_schema.py` | `TableSchema`、`Field`、`col` |
+| `models/table_schema/validator.py` | `validate()` |
 | `storage/buffer.py` | `Buffer`：`append` / `flush`（可抛出 `ValidError`、`BufferWriteError`） |
 | `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide`（返回 DataFrame、兜底统计、拉取次数） |
 | `providers/security_info/eft_info_by_mairui.py` | 麦蕊 ETF 列表 `fetch` / `fetch_and_clean` / `provide` |
 | `exceptions/api_error/mairui_error.py` | **`MairuiError`** 及 ETF 列表相关子类 |
 | `db/api/security_info/etf_info.py` | **`etf_info`** 表查询与 **`get_latest_update_date`** 等 |
-| `jobs/job_utils/info.py` | **`JobInfo`**（任务执行结果；**`error`** 仅未预期异常，可预期失败见 **`write_failed_times`** / **`fallback_records`**） |
+| `models/job_info/job_info.py` | **`JobInfo`**（任务执行结果；**`error`** 仅未预期异常，可预期失败见 **`write_failed_times`** / **`fallback_records`**） |
 | `jobs/trade_calendar/update_stock_api_trade_calendar.py` | `run()`：`provide` → `Buffer`；**`ValidError`** / **`BufferWriteError`** → 计数 + 日志，**不**写入 **`error`**；未预期异常 → **`success=False`** + **`error`**（**`ApiError` 一般在 `fetch_and_clean` 已处理**） |
 | `jobs/security_info/update_etf_info.py` | `run()`：条件满足时 **`provide` → `Buffer`**；否则返回 **`JobInfo`**（部分字段 **`None`** 表示跳过） |
 | `exceptions/email_error.py` | `EmailError`、`EmailSendError`、`EnvVarEmptyError` |
 | `utils/emails/send.py` | **`send_email()`** 实现（可抛出 `EmailError` 子类） |
-| `utils/emails/template.py` | **`jobinfo_to_email_body()`**：单条 **`JobInfo`** → 纯文本段落 |
-| `utils/emails/__init__.py` | 导出 **`send_email`**、**`jobinfo_to_email_body`** 等 |
+| `models/job_info/template.py` | **`jobinfo_to_email_body()`**：单条 **`JobInfo`** → 纯文本段落 |
+| `utils/emails/__init__.py` | 导出 **`send_email`** |
 | `update_trade_calendar.py`（项目根） | 交易日历域入口：`JOBS_REGISTRY` 顺序调用各 **`run()`**，收集 **`JobInfo`** 发汇总邮件；宜捕获 **`EmailError`** 仅记日志、不二次发信 |
 | `update_security_info.py`（项目根） | 证券信息域入口：同上，宜捕获 **`EmailError`** 仅记日志、不二次发信 |

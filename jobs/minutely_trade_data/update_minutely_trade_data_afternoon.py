@@ -9,7 +9,7 @@ from collections import Counter
 import time
 
 # 工具
-from jobs.job_utils import JobInfo
+from models.job_info import JobInfo
 
 # ETF配置
 from jobs.minutely_trade_data.shared_config import ETF_CODE_LIST, ETF_BUFFER_MAP, etf_minutely_trade_data_by_mairui

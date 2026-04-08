@@ -18,7 +18,7 @@ from providers.trade_calendar import trade_calendar_by_stock_api
 from storage.buffer import Buffer
 
 # job工具
-from jobs.job_utils import JobInfo
+from models.job_info import JobInfo
 
 # 异常
 from exceptions.buffer_error import BufferWriteError

@@ -17,7 +17,7 @@ from pandas.api.types import (
 )
 
 # 表结构
-from utils.schema import TableSchema
+from models.table_schema import TableSchema
 
 # 异常
 from exceptions.valid_error import (

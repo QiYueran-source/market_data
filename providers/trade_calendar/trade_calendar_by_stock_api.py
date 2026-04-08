@@ -15,7 +15,7 @@ from typing import Tuple
 
 # 工具
 from providers.provider_utils import limit, retry
-from utils.schema import validate
+from models.table_schema import validate
 
 # 表结构
 from schema.trade_calendar import STOCKAPI_TRADE_CALENDAR_SCHEMA

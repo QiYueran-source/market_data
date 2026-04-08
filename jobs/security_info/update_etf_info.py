@@ -7,7 +7,7 @@ import datetime as dt
 from collections import Counter
 
 # 工具
-from jobs.job_utils import JobInfo
+from models.job_info import JobInfo
 from db.api.security_info import etf_info
 from db.api.trade_calendar import stock_api_trade_calendar
 

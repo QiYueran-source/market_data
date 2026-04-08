@@ -2,7 +2,7 @@
 
 ## TableSchema结构
 ```python
-from utils.schema import TableSchema
+from models.table_schema import TableSchema
 
 TableSchema(
     database_name='calendar',

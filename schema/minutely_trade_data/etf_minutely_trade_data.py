@@ -10,7 +10,7 @@ etf分钟交易数据
 import numpy as np
 
 # 表结构
-from utils.schema import col, TableSchema
+from models.table_schema import col, TableSchema
 
 # 通用schema模板
 SCHEMA_TEMPLATE = [

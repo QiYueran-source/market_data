@@ -9,7 +9,8 @@ add_root_path()
 import sys
 
 # 导入邮件工具
-from utils.emails import jobinfo_to_email_body, send_email
+from models.job_info import jobinfo_to_email_body
+from utils.emails import send_email
 
 # 日志
 from utils import get_logger

@@ -44,7 +44,7 @@ Provider **不绕过**限流装饰器直连 HTTP/SDK；写库统一走 Storage�
 **职责**
 
 - 接收已对齐 `TableSchema` 的数据。
-- **校验（推荐）**：调用 **`validate(df, schema)`**（`utils/schema/validator.py`）确认列、主键、dtype 等再写入；失败则拒绝写库；当前由 **`Buffer.append`** 内校验并抛出 **`ValidError`** 子类。
+- **校验（推荐）**：调用 **`validate(df, schema)`**（`models/table_schema/validator.py`）确认列、主键、dtype 等再写入；失败则拒绝写库；当前由 **`Buffer.append`** 内校验并抛出 **`ValidError`** 子类。
 - **缓存**（按需）：
   - **落库侧**：批量攒批、`executemany`、控制单次事务大小，减少锁持有时间。
   - **请求侧缓存**（可选）：宜留在 Provider 侧或 Provider 末尾，避免与写库队列概念混淆。
@@ -101,8 +101,6 @@ mktdata/
     __init__.py
     buffer.py
   jobs/                           # Job 层：按库分子目录，每表 update_*.py + run()
-    job_utils/                    # JobInfo 等编排共用类型
-      info.py
     trade_calendar/
       update_stock_api_trade_calendar.py
     security_info/
@@ -115,11 +113,15 @@ mktdata/
       ...
     security_info/
       ...
-  db/
-  utils/
-    schema/                       # TableSchema、Field、col；validate(df, schema)
+  models/
+    table_schema/                 # TableSchema、Field、col；validate(df, schema)
       table_schema.py
       validator.py
+    job_info/                     # JobInfo 与邮件正文模板
+      job_info.py
+      template.py
+  db/
+  utils/
   exceptions/
   build_database.py               # 建表；部署或 Job 前执行
   _provide_akshare_calendar.py    # 演进期可保留，逻辑迁入 providers + jobs + storage
@@ -131,7 +133,7 @@ mktdata/
 | ---- | ---- | -------- |
 | Provider | `providers/<源名>/`、`providers/provider_utils/` | 限流、重试、拉数、对齐 TableSchema（含共享归一化调用） |
 | Storage | `storage/` | 校验、`buffer`、upsert、事务 |
-| Job | `jobs/<库>/update_*.py`、`run()`；`jobs/job_utils/`（如 **`JobInfo`**） | 读配置、串联 Provider → `Buffer`；**`run()`** 返回 **`JobInfo`**（**`error`** 仅未预期异常；可预期写库/校验失败见 **`write_failed_times`**，Provider 兜底见 **`fallback_records`**，详见 **`docs/Jobs.md`**）供域入口汇总 |
+| Job | `jobs/<库>/update_*.py`、`run()`；`models/job_info/`（如 **`JobInfo`**） | 读配置、串联 Provider → `Buffer`；**`run()`** 返回 **`JobInfo`**（**`error`** 仅未预期异常；可预期写库/校验失败见 **`write_failed_times`**，Provider 兜底见 **`fallback_records`**，详见 **`docs/Jobs.md`**）供域入口汇总 |
 
 ### 配置与限流参数
 

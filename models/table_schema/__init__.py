@@ -7,7 +7,7 @@ schema工具
 
 - validate：校验df是否符合schema
 '''
-from utils.schema.table_schema import Field, col, TableSchema
-from utils.schema.validator import validate
+from models.table_schema.table_schema import Field, col, TableSchema
+from models.table_schema.validator import validate
 
 __all__ = ['Field', 'TableSchema', 'col', 'validate']

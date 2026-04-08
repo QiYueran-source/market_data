@@ -57,7 +57,7 @@ from sqlalchemy.event import listen
 load_dotenv()
 
 # 工具
-from utils.schema import TableSchema,validate
+from models.table_schema import TableSchema,validate
 from providers.provider_utils import limit, retry
 
 # 表结构

@@ -2,7 +2,7 @@
 etf_info表的schema
 '''
 import numpy as np
-from utils.schema import col, TableSchema
+from models.table_schema import col, TableSchema
 
 ETF_INFO_SCHEMA = TableSchema(
     database_name='security_info.db',
