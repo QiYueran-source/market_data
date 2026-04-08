@@ -49,4 +49,4 @@ ETF_BUFFER_MAP = {
 CONDITION = stock_api_trade_calendar.is_trade_date(dt.date.today())
 INTERVAL_SECONDS = 60 # 间隔多少秒获取一次数据
 MORNING_MARKET_END_TIME = dt.time(hour=11, minute=30) # 上午市场结束时间
-AFTERNOON_MARKET_END_TIME = dt.time(hour=15, minute=50) # 下午市场结束时间
+AFTERNOON_MARKET_END_TIME = dt.time(hour=15, minute=0) # 下午市场结束时间
