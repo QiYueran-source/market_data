@@ -24,7 +24,16 @@ logger = get_logger(name='build_database')
 
 # 常量
 from db import DB_DIR
-from db import DB_SCHEMAS
+from schema.trade_calendar import TRADE_CALENDAR_SCHEMAS_LIST
+from schema.security_info import SECURITY_INFO_SCHEMAS_LIST
+from schema.minutely_trade_data import MINUTELY_TRADE_DATA_SCHEMAS_LIST
+from schema.daily_trade_data import DAILY_TRADE_DATA_SCHEMAS_LIST
+DB_SCHEMAS = {
+    'trade_calendar.db': TRADE_CALENDAR_SCHEMAS_LIST,
+    'security_info.db': SECURITY_INFO_SCHEMAS_LIST,
+    'minutely_trade_data.db': MINUTELY_TRADE_DATA_SCHEMAS_LIST,
+    'daily_trade_data.db': DAILY_TRADE_DATA_SCHEMAS_LIST
+} # 表结构列表
 
 
 def _sqlite_supports_drop_column() -> bool:
