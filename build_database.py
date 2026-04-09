@@ -1,7 +1,7 @@
 '''
 建立 / 同步数据库表结构
 
-根据 `db.DB_SCHEMAS` 中的 `TableSchema` 与磁盘上 SQLite 对比：
+根据 `DB_SCHEMAS` 中的 `TableSchema` 与磁盘上 SQLite 对比：
 - 表不存在：执行 `CREATE TABLE IF NOT EXISTS`（与原先一致）
 - 表已存在：对比列名（大小写不敏感）
   - schema 有、库中无：`ALTER TABLE ... ADD COLUMN`

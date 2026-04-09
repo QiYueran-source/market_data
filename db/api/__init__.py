@@ -3,8 +3,12 @@
 '''
 from db.api import security_info
 from db.api import trade_calendar
+from db.api import daily_trade_data
+from db.api import minutely_trade_data
 
 __all__ = [
     'security_info',
-    'trade_calendar'
+    'trade_calendar',
+    'daily_trade_data',
+    'minutely_trade_data'
 ]

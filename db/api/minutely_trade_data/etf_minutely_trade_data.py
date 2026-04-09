@@ -63,8 +63,8 @@ def get_etf_minutely_trade_data(
 
     - 参数
         - code: str ETF代码
-        - start_date: str | dt.date 开始日期
-        - end_date: str | dt.date 结束日期
+        - start_datetime: str | dt.date 开始日期 (start_date : 00:00:00)
+        - end_datetime: str | dt.date 结束日期 (end_date : 23:59:59)
         - columns: List[COLUMNS_LITERAL] | 'all' 列名，'all'表示所有列
 
     - 返回
@@ -88,7 +88,8 @@ def get_etf_minutely_trade_data(
         end_date = dt.datetime.strptime(end_date, '%Y-%m-%d')
     if start_date > end_date:
         raise ValueError('start_date不能大于end_date')
-    
+    start_datetime = dt.datetime.combine(start_date, dt.time(0, 0, 0))
+    end_datetime = dt.datetime.combine(end_date, dt.time(23, 59, 59))
     # 列参数
     if columns == 'all':
         columns = '*'
@@ -97,7 +98,7 @@ def get_etf_minutely_trade_data(
         columns = ','.join(columns_set)
     
     query = f'SELECT {columns} FROM minutely_trade_data_{code} WHERE trade_datetime BETWEEN ? AND ?'
-    params = (start_date, end_date)
+    params = (start_datetime, end_datetime)
     with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
         df = pd.read_sql_query(query, conn, params=params)
     return df
