@@ -70,7 +70,20 @@ MAIRUI_TOKEN = os.getenv('MAIRUI_TOKEN')
 MAIRUI_DAILY_TRADE_DATA_URL = 'https://api.mairuiapi.com/fd/real/time'
 
 # 规定字段
-REQUIRED_FIELDS_SET = {'pe', 'ud', 'pc', 'zf', 'p', 'o', 'h', 'l', 'yc', 'cje', 'v', 'pv', 'tv', 't'}
+REQUIRED_FIELDS_SET = {'o', 'h', 'l', 'p'}
+OTHER_FIELDS_SET = {'pe', 'ud', 'pc', 'zf', 'yc', 'cje', 'v', 'pv', 'tv', 't'}
+OPTIONAL_DEFAULTS_MAP = {
+    'pe': 0.0,
+    'ud': 0.0,
+    'pc': 0.0,
+    'zf': 0.0,
+    'yc': 0.0,
+    'cje': 0.0,
+    'v': 0,
+    'pv': 0,
+    'tv': 0.0,
+    't': '',
+}
 
 # 兜底记录
 _FALLBACK_KEY_FINAL = 'FETCH_FAIL_USE_FALLBACK_ZERO' # 用一个888888_today代码兜底
@@ -135,8 +148,25 @@ def fetch(code:str)->Dict[str, Any]:
         raise DailyTradeDataFormatError(f'分钟交易数据返回格式错误，需要dict，实际是{type(rst)}')
     if not rst:
         raise DailyTradeDataEmptyError(f'分钟交易数据返回值为空')
-    if not all(key in rst for key in ['pe', 'ud', 'pc', 'zf', 'p', 'o', 'h', 'l', 'yc', 'cje', 'v', 'pv', 'tv', 't']):
-        raise DailyTradeDataFormatError(f'分钟交易数据返回值的dict，字段应该为:pe, ud, pc, zf, p, o, h, l, yc, cje, v, pv, tv, t，实际是{rst.keys()}')
+    
+    # 校验必填字段
+    missing_required = sorted(REQUIRED_FIELDS_SET - set(rst.keys()))
+    if missing_required:
+        raise DailyTradeDataFormatError(
+            f'日线数据缺少必填字段: {missing_required}，实际字段: {sorted(rst.keys())}'
+        )
+
+    # 校验可选字段
+    missing_optional = sorted(OTHER_FIELDS_SET - set(rst.keys()))
+    if missing_optional:
+        logger.warning(
+            'ETF日线数据选填字段缺失，etf_code=%s，missing=%s，将使用默认值',
+            code,
+            missing_optional,
+        )
+
+    for field, default_value in OPTIONAL_DEFAULTS_MAP.items():
+        rst.setdefault(field, default_value)
     return rst
 
 # 获取ETF日线数据并清洗
@@ -168,7 +198,7 @@ def fetch_and_clean(code:str)->Tuple[pd.DataFrame, Counter]:
     try:
         # 获取数据
         rst = fetch(code)
-        trade_date = rst['t']
+        trade_date = rst.get('t')
         if not trade_date:
             trade_date = dt.date.today().strftime('%Y-%m-%d')
         if isinstance(trade_date, dt.datetime):

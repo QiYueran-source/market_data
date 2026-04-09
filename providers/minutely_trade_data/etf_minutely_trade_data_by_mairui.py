@@ -69,6 +69,19 @@ from schema.minutely_trade_data import (
 MAIRUI_TOKEN = os.getenv('MAIRUI_TOKEN')
 MAIRUI_MINUTELY_TRADE_DATA_URL = 'https://api.mairuiapi.com/fd/real/time'
 
+# 规定字段
+REQUIRED_FIELDS_SET = {'p', 'cje', 'v', 't'}
+OTHER_FIELDS_SET = {'pe', 'ud', 'pc', 'zf', 'yc', 'pv', 'tv'}
+OPTIONAL_DEFAULTS_MAP = {
+    'pe': 0.0,
+    'ud': 0.0,
+    'pc': 0.0,
+    'zf': 0.0,
+    'yc': 0.0,
+    'pv': 0,
+    'tv': 0.0,
+}
+
 # 兜底记录
 _FALLBACK_KEY_FINAL = 'ETF_USE_FALLBACK_ZERO' # 用兜底数据0兜底
 _FALLBACK_KEY_VALIDATE = 'ETF_VALIDATE_FAIL_USE_FALLBACK_ZERO' # 校验失败，用兜底数据0兜底
@@ -131,8 +144,27 @@ def fetch(code:str)->Dict[str, Any]:
         raise MinutelyTradeDataFormatError(f'分钟交易数据返回格式错误，需要dict，实际是{type(rst)}')
     if not rst:
         raise MinutelyTradeDataEmptyError(f'分钟交易数据返回值为空')
-    if not all(key in rst for key in ['pe', 'ud', 'pc', 'zf', 'p', 'o', 'h', 'l', 'yc', 'cje', 'v', 'pv', 'tv', 't']):
-        raise MinutelyTradeDataFormatError(f'分钟交易数据返回值的dict，字段应该为:pe, ud, pc, zf, p, o, h, l, yc, cje, v, pv, tv, t，实际是{rst.keys()}')
+    
+    # 校验必填字段
+    missing_required = sorted(REQUIRED_FIELDS_SET - set(rst.keys()))
+    if missing_required:
+        raise MinutelyTradeDataFormatError(
+            f'分钟交易数据缺少必填字段: {missing_required}，实际字段: {sorted(rst.keys())}'
+        )
+
+    # 校验可选字段 
+    missing_optional = sorted(OTHER_FIELDS_SET - set(rst.keys()))
+    if missing_optional:
+        logger.warning(
+            'ETF分钟数据选填字段缺失，etf_code=%s，missing=%s，将使用默认值',
+            code,
+            missing_optional,
+        )
+
+    # 对选填字段进行兜底填充，避免后续清洗阶段因 KeyError 进入总兜底
+    for field, default_value in OPTIONAL_DEFAULTS_MAP.items():
+        rst.setdefault(field, default_value)
+
     return rst
 
 def fetch_and_clean(code:str) -> Tuple[str, pd.DataFrame, Counter]:

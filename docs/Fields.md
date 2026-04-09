@@ -42,6 +42,7 @@
 #### etf_daily_trade_data表  
 
 该表通过api获取，传入code，获取该ETF的日线数据。
+Provider（mairui）容错策略：仅 `o/h/l/p` 为必填字段；其余字段为选填。选填字段缺失时会记录 warning，并按约定默认值填充（而非直接抛错）。
 
 | 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
 | ------ | ---- | ---- | ---- | ------ |
@@ -65,6 +66,7 @@
 #### etf_minutely_trade_data_<code>表 
 
 注意，API返回值的单位需要转换，见API.md中的字段说明。
+Provider（mairui）容错策略：仅 `p/cje/v/t` 为必填字段；其余字段为选填。选填字段缺失时会记录 warning，并按约定默认值填充（而非直接抛错）。
 注意：分钟数据按「每标的一张表」设计（表名已编码证券代码 `<code>`）。因此 **推荐不在表内重复保存 `code` 列**；若处于迁移阶段或为兼容历史实现，也可临时保留 `code` 列，但需确保：
 - schema、建表约束（PRIMARY KEY/UNIQUE）与写库 upsert 的 conflict target 一致
 - `Buffer` 的主键列与实际表约束一致（否则会触发 `ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint`）
