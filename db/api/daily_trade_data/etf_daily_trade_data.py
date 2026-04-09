@@ -18,7 +18,7 @@ TABLE_NAME = 'etf_daily_trade_data'
 COLUMNS_LITERAL = Literal['trade_date', 'code', 'yesterday_close_price', 'open', 'high', 'low', 'close', 'volume', 'amount', 'up_down', 'up_down_rate', 'turnover_rate', 'amplitude', 'original_volume', 'pe_ratio']
 
 def get_etf_daily_trade_data(
-    codes:List[str],
+    codes:str |List[str],
     start_date:str | dt.date = dt.date(2020, 1, 1),
     end_date:str | dt.date = dt.date.today(),
     columns:List[COLUMNS_LITERAL] | 'all' = 'all'
@@ -27,9 +27,9 @@ def get_etf_daily_trade_data(
     获取ETF日线交易数据
 
     - 参数
-        - codes: List[str] ETF代码列表
-        - start_datetime: str | dt.date 开始日期 (start_date : 00:00:00)
-        - end_datetime: str | dt.date 结束日期 (end_date : 23:59:59)
+        - codes: str | List[str] ETF代码(列表)
+        - start_date: str | dt.date 开始日期
+        - end_date: str | dt.date 结束日期
         - columns: List[COLUMNS_LITERAL] | 'all' 列名，'all'表示所有列
 
     - 返回
@@ -50,6 +50,9 @@ def get_etf_daily_trade_data(
             - original_volume: int 原始成交量
             - pe_ratio: float 市盈率
     '''
+    # 代码参数
+    if isinstance(codes, str):
+        codes = [codes]
     # 日期参数
     if isinstance(start_date, str):
         start_date = dt.datetime.strptime(start_date, '%Y-%m-%d')

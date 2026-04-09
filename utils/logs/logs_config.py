@@ -8,7 +8,7 @@ FILE_NAME = "app.log"
 
 # 输出与格式
 TO_CONSOLE = True # 是否输出到控制台
-LOG_LEVEL = "DEBUG"
+LOG_LEVEL = "INFO"
 LOG_NAME = "app"  # 未传 name 时使用的 logger 名
 LOG_FORMAT = "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"
 
