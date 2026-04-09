@@ -9,7 +9,7 @@ add_root_path()
 import sys
 
 # 导入邮件工具
-from models.job_info import jobinfo_to_email_body
+from models.job_info import jobinfo_to_email_body, gen_job_statics_body
 from utils.emails import send_email
 
 # 日志
@@ -27,10 +27,6 @@ JOBS_REGISTRY = {
 # 需要捕获的异常
 from exceptions.email_error import EmailError
 
-def gen_job_statics_body(total_jobs:int, success_jobs:int)->str:
-    '''生成job开头统计信息'''
-    return f'执行jobs数量：{total_jobs} 个jobs' + '\n' + f'执行成功数量：{success_jobs}' + '\n' + '具体执行结果如下：' + '\n'
-    
 # 执行所有job
 def main():
     # 运行 + 捕获异常
@@ -48,7 +44,7 @@ def main():
             continue
     
     # 发送邮件（主题与正文由模板生成）
-    subject = '分钟交易数据更新统计'
+    subject = '午盘分钟交易数据更新统计'
     content = gen_job_statics_body(jobs_nums, success_jobs_nums)
     for info in info_list:
         content += jobinfo_to_email_body(info)

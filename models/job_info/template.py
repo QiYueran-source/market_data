@@ -1,5 +1,7 @@
 '''
-邮件模板
+邮件模板  
+- gen_job_statics_body: 生成job开头统计信息  
+- jobinfo_to_email_body: 将 job_info 转换为单段邮件正文（纯文本）。  
 '''
 import datetime as dt
 import json
@@ -69,3 +71,8 @@ def jobinfo_to_email_body(job_info: JobInfo) -> str:
         lines.append('额外信息:')
         lines.append(extra_block)
     return '-' * 60 + '\n' + '\n'.join(lines) + '\n' 
+
+
+def gen_job_statics_body(total_jobs:int, success_jobs:int)->str:
+    '''生成job开头统计信息'''
+    return f'执行jobs数量：{total_jobs} 个jobs' + '\n' + f'执行成功数量：{success_jobs}' + '\n' + '具体执行结果如下：' + '\n'
