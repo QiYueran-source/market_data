@@ -97,6 +97,10 @@ mktdata/
       ...
     security_info/                # 如麦蕊 ETF 列表
       eft_info_by_mairui.py
+    daily_trade_data/             # 麦蕊 ETF 日线等
+      etf_daily_trade_data_by_mairui.py
+    minutely_trade_data/          # 麦蕊 ETF 分钟等
+      etf_minutely_trade_data_by_mairui.py
   storage/                        # Storage 层：Buffer 校验 + upsert 写库
     __init__.py
     buffer.py
@@ -105,9 +109,17 @@ mktdata/
       update_stock_api_trade_calendar.py
     security_info/
       update_etf_info.py
+    daily_trade_data/
+      update_etf_daily_trade_data.py
+    minutely_trade_data/
+      update_minutely_trade_data_morning.py
+      update_minutely_trade_data_afternoon.py
     ...
   update_trade_calendar.py        # 交易日历域入口，JOBS_REGISTRY 顺序执行
   update_security_info.py         # 证券信息域入口（如 ETF），JOBS_REGISTRY 顺序执行
+  update_daily_trade_data.py      # 日线交易数据域入口
+  update_minutely_trade_data_morning.py   # 分钟数据（早盘）
+  update_minutely_trade_data_afternoon.py # 分钟数据（午盘）
   schema/                         # 各库表结构定义（如 trade_calendar、security_info）；基于 utils.schema 拼装
     trade_calendar/
       ...

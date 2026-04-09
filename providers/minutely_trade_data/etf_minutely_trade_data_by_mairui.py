@@ -67,7 +67,7 @@ from schema.minutely_trade_data import (
 
 # 环境变量
 MAIRUI_TOKEN = os.getenv('MAIRUI_TOKEN')
-MAIRUI_MINUTELY_TRADE_DATA_URL = 'https://api.mairuiapi.com/fd/real/time/'
+MAIRUI_MINUTELY_TRADE_DATA_URL = 'https://api.mairuiapi.com/fd/real/time'
 
 # 兜底记录
 _FALLBACK_KEY_FINAL = 'ETF_USE_FALLBACK_ZERO' # 用兜底数据0兜底
@@ -87,7 +87,7 @@ from exceptions.api_error.mairui_error import (
     MinutelyTradeDataJsonDecodeError,
     MinutelyTradeDataFormatError,
     MinutelyTradeDataEmptyError,
-    EtfNotInLatestListError
+    MinutelyEtfNotInLatestListError
 )
 
 # ETF列表
@@ -103,22 +103,22 @@ def fetch(code:str)->Dict[str, Any]:
     '''
     if code not in LATEST_ETF_LIST:
         # 抛出，交给fetch_and_clean处理
-        raise EtfNotInLatestListError(f'代码{code}不在最新ETF列表中')
+        raise MinutelyEtfNotInLatestListError(f'代码{code}不在最新ETF列表中')
 
-    url = f'{MAIRUI_MINUTELY_TRADE_DATA_URL}{code}/{MAIRUI_TOKEN}'
+    url = f'{MAIRUI_MINUTELY_TRADE_DATA_URL}/{code}/{MAIRUI_TOKEN}'
     try:
         response = requests.get(url)
         status_code = response.status_code
         if status_code == 404:
-            raise NotFoundError(f'{url} URL不存在，状态码: {status_code}')
+            raise NotFoundError(f'{MAIRUI_MINUTELY_TRADE_DATA_URL} URL不存在，状态码: {status_code}')
         if status_code == 503:
-            raise MairuiQuotaExhaustedError(f'{url} 请求次数超过限额，状态码: {status_code}')
+            raise MairuiQuotaExhaustedError(f'{MAIRUI_MINUTELY_TRADE_DATA_URL} 请求次数超过限额，状态码: {status_code}')
         if status_code == 101:
-            raise InsufficientTierError(f'{url} Token等级不足，状态码: {status_code}')
+            raise InsufficientTierError(f'{MAIRUI_MINUTELY_TRADE_DATA_URL} Token等级不足，状态码: {status_code}')
         if status_code == 102:
-            raise InvalidLicenceError(f'{url} licence无效，状态码: {status_code}')
+            raise InvalidLicenceError(f'{MAIRUI_MINUTELY_TRADE_DATA_URL} licence无效，状态码: {status_code}')
         if status_code != 200:
-            raise BadRequestError(f'{url} 返回了错误的状态码: {status_code}')
+            raise BadRequestError(f'{MAIRUI_MINUTELY_TRADE_DATA_URL} 返回了错误的状态码: {status_code}')
     except requests.exceptions.RequestException as e:
         raise BadRequestError(f'请求麦蕊智数API失败: {e}')
 
@@ -135,12 +135,12 @@ def fetch(code:str)->Dict[str, Any]:
         raise MinutelyTradeDataFormatError(f'分钟交易数据返回值的dict，字段应该为:pe, ud, pc, zf, p, o, h, l, yc, cje, v, pv, tv, t，实际是{rst.keys()}')
     return rst
 
-def fetch_and_clean(code:str) -> Tuple[str,pd.DataFrame, Counter]:
+def fetch_and_clean(code:str) -> Tuple[str, pd.DataFrame, Counter]:
     '''
     获取分钟交易数据并清洗
     '''
     records = Counter()
-    final_fallback_df = lambda code: pd.DataFrame(
+    final_fallback_df = pd.DataFrame(
         {
             'trade_datetime': [dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
             'price': [0.0],
@@ -179,12 +179,13 @@ def fetch_and_clean(code:str) -> Tuple[str,pd.DataFrame, Counter]:
             'pe_ratio': [float(rst['pe'] / 100)],
         }
         df = pd.DataFrame(rst)
-    except EtfNotInLatestListError as e:
+    except MinutelyEtfNotInLatestListError as e:
         # 跳过，记警告
         logger.warning(f'ETF代码{code}不在最新ETF列表中，跳过: {e}')
+        return code, pd.DataFrame(), records
     except Exception as e:
         logger.exception(f'API 拉取失败，etf_code={code}，进入兜底逻辑')
-        df = final_fallback_df(code)
+        df = final_fallback_df
         records[_FALLBACK_KEY_FINAL] += 1
 
     # 验证df
@@ -192,7 +193,7 @@ def fetch_and_clean(code:str) -> Tuple[str,pd.DataFrame, Counter]:
         validate(df, ETF_CODE_SCHEMA_MAP[code])
     except Exception:
         logger.exception(f'校验失败，采用兜底：etf_code={code}，请及时处理')
-        df = final_fallback_df(code)
+        df = final_fallback_df
         records[_FALLBACK_KEY_VALIDATE] += 1
     return code, df, records
 
@@ -216,6 +217,8 @@ def provide(codes:List[str])->Tuple[Dict[str, pd.DataFrame], Counter, int]:
         futures = [executor.submit(fetch_and_clean, code) for code in codes]
         for future in futures:
             code, df, fallback_records = future.result()
+            if df.empty:
+                continue
             dfs[code] = df
             total_fallback_records.update(fallback_records)
             total_fetch_times += 1

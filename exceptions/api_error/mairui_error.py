@@ -29,14 +29,33 @@ class FieldError(MairuiError):
     '''etf列表返回值的List，内部dict的字段应该为:dm, mc, jys'''
 
 # -------------------- 分钟交易数据 --------------------
-class EtfNotInLatestListError(MairuiError):
+class MinutelyTradeDataError(MairuiError):
+    '''分钟交易数据错误基类'''
+
+class MinutelyEtfNotInLatestListError(MinutelyTradeDataError):
     '''ETF代码不在最新ETF列表中'''
 
-class MinutelyTradeDataJsonDecodeError(MairuiError):
+class MinutelyTradeDataJsonDecodeError(MinutelyTradeDataError):
     '''分钟交易数据返回不是合法json'''
 
-class MinutelyTradeDataFormatError(MairuiError):
+class MinutelyTradeDataFormatError(MinutelyTradeDataError):
     '''分钟交易数据返回格式错误：不是dict'''
 
-class MinutelyTradeDataEmptyError(MairuiError):
+class MinutelyTradeDataEmptyError(MinutelyTradeDataError):
+    '''分钟交易数据返回值为空'''
+
+# -------------------- 日线交易数据 --------------------
+class DailyTradeDataError(MairuiError):
+    '''日线交易数据错误基类'''
+
+class DailyEtfNotInLatestListError(DailyTradeDataError):
+    '''ETF代码不在最新ETF列表中'''
+
+class DailyTradeDataJsonDecodeError(DailyTradeDataError):
+    '''分钟交易数据返回不是合法json'''
+
+class DailyTradeDataFormatError(DailyTradeDataError):
+    '''分钟交易数据返回格式错误：不是dict'''
+
+class DailyTradeDataEmptyError(DailyTradeDataError):
     '''分钟交易数据返回值为空'''

@@ -8,17 +8,18 @@
 
 DBS_LTERAL: 数据库名称的类型
 '''
-from typing import Literal
 from schema.trade_calendar import TRADE_CALENDAR_SCHEMAS_LIST
 from schema.security_info import SECURITY_INFO_SCHEMAS_LIST
 from schema.minutely_trade_data import MINUTELY_TRADE_DATA_SCHEMAS_LIST
+from schema.daily_trade_data import DAILY_TRADE_DATA_SCHEMAS_LIST
 
 # 常量定义
 DB_DIR = 'db' # 数据库目录
 DB_SCHEMAS = {
     'trade_calendar.db': TRADE_CALENDAR_SCHEMAS_LIST,
     'security_info.db': SECURITY_INFO_SCHEMAS_LIST,
-    'minutely_trade_data.db': MINUTELY_TRADE_DATA_SCHEMAS_LIST
+    'minutely_trade_data.db': MINUTELY_TRADE_DATA_SCHEMAS_LIST,
+    'daily_trade_data.db': DAILY_TRADE_DATA_SCHEMAS_LIST
 } # 表结构列表
 
 __all__ = ['DB_DIR', 'DB_SCHEMAS']

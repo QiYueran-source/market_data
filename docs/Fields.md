@@ -14,6 +14,8 @@
 
 - **trade_calendar**：交易日历库，存放各数据源的交易日历数据（如 `akshare_trade_calendar` 等）。
 - **security_info**：证券信息库，存放 ETF 等基础信息（如 `etf_info` 表）。
+- **daily_trade_data**：日线交易数据库（如 **`etf_daily_trade_data`** 表，多标的共表，主键 **`(code, trade_date)`**）。
+- **minutely_trade_data**：分钟交易数据库（按标的分表 **`etf_minutely_trade_data_<code>`**）。
 
 
 ## 表
@@ -36,6 +38,28 @@
 | exchange | TEXT | ETF所在交易所，如SH，SZ | False | 未知交易所 |
 | last_update_date | TEXT | 最后更新日期，格式为yyyy-mm-dd，每次更新后覆盖 | False | 上次更新的日期 |
 
+### daily_trade_data库
+#### etf_daily_trade_data表  
+
+该表通过api获取，传入code，获取该ETF的日线数据。
+
+| 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
+| ------ | ---- | ---- | ---- | ------ |
+| code | TEXT | ETF代码，如 159718 (无后缀) | True | 提供的code |
+| trade_date | TEXT | 交易时间，格式为yyyy-mm-dd | True | 当前日期 |
+| open | REAL | 开盘价(元) | False | 0.0 |
+| high | REAL | 最高价(元) | False | 0.0 |
+| low | REAL | 最低价(元) | False | 0.0 |
+| close | REAL | 收盘价(元) | False | 0.0 |
+| volume | INTEGER | 交易量(股) | False | 0.0 |
+| amount | REAL | 交易金额(元) | False | 0.0 |
+| original_volume | INTEGER | 原始交易量(股) | False | 0.0 |
+| yesterday_close_price | REAL | 昨收价(元) | False | 0.0 |  
+| up_down | REAL | 相对昨收盘涨跌额(元) | False | 0.0 |
+| up_down_rate | REAL | 相对昨收盘涨跌率 | False | 0.0 |   
+| amplitude | REAL | 振幅 | False | 0.0 |  
+| turnover_rate | REAL | 换手率 | False | 0.0 |    
+| pe_ratio | REAL | 市盈率 | False | 0.0 |  
 
 ### minutely_trade_data库
 #### etf_minutely_trade_data_<code>表 

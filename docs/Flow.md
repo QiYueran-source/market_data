@@ -61,4 +61,7 @@ crontab -e
 
 # 每天 13:00 启动分钟交易数据（午盘/下午）
 0 13 * * * cd /path/to/pj && /path/to/python /path/to/update_minutely_trade_data_afternoon.py >> /path/to/pj/logs/cron_minutely_afternoon.log 2>&1
+
+# 每天 17:00 更新日线交易数据（是否写入由 job 内交易日等条件决定；路径与解释器按本机修改）
+0 17 * * * cd /path/to/pj && /path/to/python /path/to/update_daily_trade_data.py >> /path/to/pj/logs/cron_daily_trade_data.log 2>&1
 ```
