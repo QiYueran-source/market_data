@@ -25,10 +25,10 @@ class EtfListJsonDecodeError(MairuiError):
 class EtfListFormatError(MairuiError):
     '''etf列表返回格式错误：不是List[dict]'''
 
-class FieldError(MairuiError):
+class EtfFieldError(MairuiError):
     '''etf列表返回值的List，内部dict的字段应该为:dm, mc, jys'''
 
-# -------------------- 分钟交易数据 --------------------
+# -------------------- etf分钟交易数据 --------------------
 class MinutelyTradeDataError(MairuiError):
     '''分钟交易数据错误基类'''
 
@@ -44,7 +44,7 @@ class MinutelyTradeDataFormatError(MinutelyTradeDataError):
 class MinutelyTradeDataEmptyError(MinutelyTradeDataError):
     '''分钟交易数据返回值为空'''
 
-# -------------------- 日线交易数据 --------------------
+# -------------------- etf日线交易数据 --------------------
 class DailyTradeDataError(MairuiError):
     '''日线交易数据错误基类'''
 
@@ -59,3 +59,19 @@ class DailyTradeDataFormatError(DailyTradeDataError):
 
 class DailyTradeDataEmptyError(DailyTradeDataError):
     '''分钟交易数据返回值为空'''
+
+# -------------------- 股票列表 --------------------
+class StockInfoError(MairuiError):
+    '''股票列表错误基类'''
+
+class StockInfoJsonDecodeError(StockInfoError):
+    '''股票列表返回不是合法json'''
+
+class StockInfoFormatError(StockInfoError):
+    '''股票列表返回格式错误：不是List[dict]'''
+
+class StockInfoEmptyError(StockInfoError):
+    '''股票列表返回值为空'''
+
+class StockInfoFieldError(StockInfoError):
+    '''股票列表返回值的List，内部dict的字段应该为:dm, mc, jys'''

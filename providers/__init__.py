@@ -15,4 +15,6 @@ Provider层
 具体映射：  
 - trade_calendar: 交易日历  
     - trade_calendar_by_stock_api.py: 用stock_api获取股票交易日历数据 -> trade_calendar.stock_api_trade_calendar(calendar_date, is_open)
+- security_info: 证券信息
+    - stock_info_by_mairui.py: 用mairui获取股票列表数据 -> security_info.stock_info(dm, mc, jys)
 '''

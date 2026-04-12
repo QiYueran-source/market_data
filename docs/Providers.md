@@ -18,7 +18,7 @@
 | stock_api_trade_calendar | 任意连续 **60s** 内最多 **40** 次 |
 | test | 任意连续 **30s** 内最多 **60** 次（测试用） |
 
-麦蕊相关 Provider（如 **`providers/security_info/eft_info_by_mairui.py`**、**`providers/daily_trade_data/etf_daily_trade_data_by_mairui.py`**、**`providers/minutely_trade_data/etf_minutely_trade_data_by_mairui.py`**）共用 **`limit('mairui')`**，合计受上表 **mairui** 一行约束；日线 Job 若分批拉全市场，需注意总请求速率。
+麦蕊相关 Provider（如 **`providers/security_info/eft_info_by_mairui.py`**、**`providers/security_info/stock_info_by_mairui.py`**、**`providers/daily_trade_data/etf_daily_trade_data_by_mairui.py`**、**`providers/minutely_trade_data/etf_minutely_trade_data_by_mairui.py`**）共用 **`limit('mairui')`**，合计受上表 **mairui** 一行约束；日线 Job 若分批拉全市场，需注意总请求速率。
 
 
 ### 重试器  

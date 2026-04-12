@@ -43,10 +43,10 @@
 | **`models/job_info/`** | 任务执行结果结构（如 `JobInfo`）及邮件正文拼装，供各 `update_*.py` 汇总后发通知。 |
 | **`providers/`** | 数据源适配层：HTTP 请求、限流/重试（`provider_utils`）、异常映射、字段容错与清洗，返回 `(DataFrame, 统计信息)` 等。子目录按域划分：`daily_trade_data`、`minutely_trade_data`、`trade_calendar`、`security_info`。 |
 | **`providers/provider_utils/`** | 通用装饰器：API 限流、失败重试等，供各 provider 复用。 |
-| **`jobs/`** | 可调度业务单元：组合「交易日判断 + ETF 列表 + provider + Buffer」，是 `update_*.py` 脚本的实际执行体。 |
+| **`jobs/`** | 可调度业务单元：组合「交易日判断 + 证券列表（ETF/股票等）+ provider + Buffer」，是 `update_*.py` 脚本的实际执行体。 |
 | **`storage/buffer.py`** | 按 `TableSchema` 将多批 `DataFrame` 合并后写入对应 `database_name` 指向的 SQLite 文件，主键冲突时更新非主键列。 |
 | **`db/`** | `DB_DIR` 指向的数据库根目录；内含 `*.db`（如 `daily_trade_data.db`、`minutely_trade_data.db` 等）及 `db/api` 读接口实现。 |
-| **`db/api/`** | 按库分目录的查询封装（如 `etf_daily_trade_data`、`etf_minutely_trade_data`、`etf_info`），统一返回 pandas，便于 sshfs 只挂 `db` 时在远端消费。 |
+| **`db/api/`** | 按库分目录的查询封装（如 `etf_daily_trade_data`、`etf_minutely_trade_data`、`etf_info`、`stock_info`），统一返回 pandas，便于 sshfs 只挂 `db` 时在远端消费。 |
 | **`utils/`** | 日志（`get_logger`）、路径（`add_root_path`）、邮件发送等横切能力。 |
 | **`exceptions/`** | 分层异常：API 错误、Buffer 写入、校验、邮件等，便于 job 层捕获与日志区分。 |
 | **`build_database.py`** | 根据 `DB_SCHEMAS` 与磁盘上 SQLite 对比：缺表则 `CREATE`、缺列则 `ALTER ADD`；不自动处理「列改名 / 主键变更」。 |
@@ -60,7 +60,7 @@
 与 `docs/Fields.md` 一致，核心库包括：
 
 - **`trade_calendar.db`**：交易日历（如 `akshare_trade_calendar`、stock API 日历等）。
-- **`security_info.db`**：证券基础信息（如 `etf_info`）。
+- **`security_info.db`**：证券基础信息（如 **`etf_info`**、**`stock_info`**）。
 - **`daily_trade_data.db`**：多标的共表 **`etf_daily_trade_data`**，主键 `(code, trade_date)`。
 - **`minutely_trade_data.db`**：按标的分表 **`etf_minutely_trade_data_<code>`**，主键一般为 `trade_datetime`（详见 schema 与文档）。
 
@@ -72,7 +72,7 @@
 |------|----------|
 | `update_daily_trade_data.py` | 更新 ETF 日线（依赖交易日与证券列表）。 |
 | `update_minutely_trade_data_morning.py` / `update_minutely_trade_data_afternoon.py` | 早盘 / 午盘分钟线更新（共享逻辑见 `jobs/minutely_trade_data/shared_config.py`）。 |
-| `update_security_info.py` | 更新 ETF 基础信息列表。 |
+| `update_security_info.py` | 更新证券基础信息（当前注册：**ETF 列表**、**股票列表**；顺序见脚本内 **`JOBS_REGISTRY`**）。 |
 | `update_trade_calendar.py` | 更新交易日历。 |
 | `build_database.py` | 同步本地 SQLite 表结构到当前 `schema/` 定义。 |
 

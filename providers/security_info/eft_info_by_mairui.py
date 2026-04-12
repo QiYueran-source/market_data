@@ -51,7 +51,7 @@ from exceptions.api_error.mairui_error import (
     MairuiQuotaExhaustedError,
     InsufficientTierError,
     InvalidLicenceError,
-    FieldError,
+    EtfFieldError,
 )
 
 # 获取ETF信息
@@ -68,12 +68,12 @@ def fetch()->List[Dict[str, str]]:
         - MairuiQuotaExhaustedError: {MAIRUI_ETF_INFO_URL} 请求次数超过限额
         - InsufficientTierError: {MAIRUI_ETF_INFO_URL} Token等级不足
         - InvalidLicenceError: {MAIRUI_ETF_INFO_URL} licence无效
-        - FieldError: etf列表返回值的List，内部dict的字段应该至少包含:{REQUIRED_FIELDS_SET}
+        - EtfFieldError: etf列表返回值的List，内部dict的字段应该至少包含:{REQUIRED_FIELDS_SET}
         - EtfListJsonDecodeError: etf列表返回不是合法json
         - EtfListFormatError: etf列表返回格式错误，需要List[dict], 实际是{type(rst)}
         - EtfListFormatError: etf列表返回值的List为空
         - EtfListFormatError: etf列表返回值的List，内部需要是dict，实际是{type(invalid_items[0])}
-        - FieldError: etf列表返回值的List，内部dict的字段应该至少包含:{REQUIRED_FIELDS_SET}，实际是{invalid_keys[0].keys()}
+        - EtfFieldError: etf列表返回值的List，内部dict的字段应该至少包含:{REQUIRED_FIELDS_SET}，实际是{invalid_keys[0].keys()}
 
     - 返回
         - list: ETF信息列表
@@ -116,7 +116,7 @@ def fetch()->List[Dict[str, str]]:
         raise EtfListFormatError(f'etf列表返回值的List，内部需要是dict，实际是{type(invalid_items[0])}')
     if not all(REQUIRED_FIELDS_SET.issubset(d) for d in rst):
         invalid_keys = [d for d in rst if not REQUIRED_FIELDS_SET.issubset(d)]
-        raise FieldError(f'etf列表返回值的List，内部dict的字段应该至少包含:{REQUIRED_FIELDS_SET}，实际是{invalid_keys[0].keys()}')
+        raise EtfFieldError(f'etf列表返回值的List，内部dict的字段应该至少包含:{REQUIRED_FIELDS_SET}，实际是{invalid_keys[0].keys()}')
     
     rst = [{'code': item['dm'].split('.')[0], 'name': item['mc'], 'exchange': item['jys']} for item in rst]
     return rst

@@ -3,7 +3,9 @@
 - etf_info : 获取ETF信息
 '''
 from db.api.security_info import etf_info
+from db.api.security_info import stock_info
 
 __all__ = [
-    'etf_info'
+    'etf_info',
+    'stock_info'
 ]

@@ -9,4 +9,4 @@ db下的api目录，提供对每一个表的接口，用于获取表的数据。
 ## 子目录（按库）
 
 - **`db/api/trade_calendar/`**：交易日历库表访问（如 `stock_api_trade_calendar` 等，以实际模块为准）。
-- **`db/api/security_info/`**：证券信息库表访问（如 **`etf_info.py`** → `etf_info` 表）。
+- **`db/api/security_info/`**：证券信息库表访问（如 **`etf_info.py`** → `etf_info` 表，**`stock_info.py`** → `stock_info` 表）。

@@ -3,7 +3,7 @@
 ## 约定
 
 - 异常类定义在 `exceptions/` 下，按领域分子模块（`schema_error`、`valid_error`、`api_error`、`buffer_error`、`email_error`）。
-- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，交易日历 **`fetch_and_clean()`** 在 **API 失败走兜底**、**兜底失败**、**`validate` 失败降级** 等路径使用 **`logger.exception`**；**`update_stock_api_trade_calendar.run()`**、**`update_etf_info.run()`**、**`update_etf_daily_trade_data.run()`**、**`update_minutely_trade_data_morning.run()`** / **`update_minutely_trade_data_afternoon.run()`** 等在 **`ValidError` / `BufferWriteError` / 其它异常** 时使用 **`logger.exception`**。编排入口（**`update_trade_calendar.main`**、**`update_security_info.main`**、**`update_daily_trade_data.main`**、**`update_minutely_trade_data_morning.main`**、**`update_minutely_trade_data_afternoon.main`** 等）在汇总通知失败时，对 **`EmailError`** 子类 **仅记录日志，不再次调用发信**（避免失败通知递归发邮件）。
+- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，交易日历 **`fetch_and_clean()`** 在 **API 失败走兜底**、**兜底失败**、**`validate` 失败降级** 等路径使用 **`logger.exception`**；**`update_stock_api_trade_calendar.run()`**、**`update_etf_info.run()`**、**`update_stock_info.run()`**、**`update_etf_daily_trade_data.run()`**、**`update_minutely_trade_data_morning.run()`** / **`update_minutely_trade_data_afternoon.run()`** 等在 **`ValidError` / `BufferWriteError` / 其它异常** 时使用 **`logger.exception`**。编排入口（**`update_trade_calendar.main`**、**`update_security_info.main`**、**`update_daily_trade_data.main`**、**`update_minutely_trade_data_morning.main`**、**`update_minutely_trade_data_afternoon.main`** 等）在汇总通知失败时，对 **`EmailError`** 子类 **仅记录日志，不再次调用发信**（避免失败通知递归发邮件）。
 - **文档与代码**：类名、继承关系以 `exceptions/**/*.py` 为准；本页表格中的「抛出位置」指向当前已实现调用链。
 
 ## 继承关系（Api 相关）
@@ -23,7 +23,7 @@ Exception
             └── FallBackError
                 ├── SQLiteError
                 └── FallBackDataEmptyError
-    └── MairuiError                   exceptions/api_error/mairui_error.py（麦蕊 ETF 等）
+    └── MairuiError                   exceptions/api_error/mairui_error.py（麦蕊：ETF/股票列表、日线、分钟等）
 ```
 
 ## SchemaError
@@ -212,13 +212,16 @@ Exception
 | `storage/buffer.py` | `Buffer`：`append` / `flush`（可抛出 `ValidError`、`BufferWriteError`） |
 | `providers/trade_calendar/trade_calendar_by_stock_api.py` | 交易日历 `fetch` / 兜底 / `fetch_and_clean` / `provide`（返回 DataFrame、兜底统计、拉取次数） |
 | `providers/security_info/eft_info_by_mairui.py` | 麦蕊 ETF 列表 `fetch` / `fetch_and_clean` / `provide` |
+| `providers/security_info/stock_info_by_mairui.py` | 麦蕊沪深股票列表 `fetch` / `fetch_and_clean` / `provide`（含原表兜底与校验兜底） |
 | `providers/daily_trade_data/etf_daily_trade_data_by_mairui.py` | 麦蕊 ETF 日线（当前与实时接口同源字段）；`fetch_and_clean` / **`provide(codes)`** |
 | `providers/minutely_trade_data/etf_minutely_trade_data_by_mairui.py` | 麦蕊 ETF 分钟；`fetch_and_clean` / **`provide(codes)`** |
-| `exceptions/api_error/mairui_error.py` | **`MairuiError`** 及 ETF 列表相关子类 |
+| `exceptions/api_error/mairui_error.py` | **`MairuiError`** 及麦蕊相关子类（含 ETF 列表、**股票列表** `StockInfo*` 等） |
 | `db/api/security_info/etf_info.py` | **`etf_info`** 表查询与 **`get_latest_update_date`** 等 |
+| `db/api/security_info/stock_info.py` | **`stock_info`** 表查询与 **`get_latest_update_date`** 等 |
 | `models/job_info/job_info.py` | **`JobInfo`**（任务执行结果；**`error`** 仅未预期异常，可预期失败见 **`write_failed_times`** / **`fallback_records`**） |
 | `jobs/trade_calendar/update_stock_api_trade_calendar.py` | `run()`：`provide` → `Buffer`；**`ValidError`** / **`BufferWriteError`** → 计数 + 日志，**不**写入 **`error`**；未预期异常 → **`success=False`** + **`error`**（**`ApiError` 一般在 `fetch_and_clean` 已处理**） |
 | `jobs/security_info/update_etf_info.py` | `run()`：条件满足时 **`provide` → `Buffer`**；否则返回 **`JobInfo`**（部分字段 **`None`** 表示跳过） |
+| `jobs/security_info/update_stock_info.py` | `run()`：同上，目标表 **`stock_info`** |
 | `jobs/daily_trade_data/update_etf_daily_trade_data.py` | 日线：分批 **`provide`** → **`Buffer.append` / `flush`**；**`JobInfo`** 语义同 **`docs/Jobs.md`** |
 | `jobs/minutely_trade_data/update_minutely_trade_data_morning.py` | 分钟（早盘循环）；**`JobInfo`** 同上 |
 | `jobs/minutely_trade_data/update_minutely_trade_data_afternoon.py` | 分钟（午盘循环）；**`JobInfo`** 同上 |

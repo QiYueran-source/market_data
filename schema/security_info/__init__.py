@@ -8,10 +8,12 @@ schema:
 - ETF_INFO_SCHEMA: ETF信息表的schema
 '''
 from schema.security_info.etf_info import ETF_INFO_SCHEMA
+from schema.security_info.stock_info import STOCK_INFO_SCHEMA
 
 # 包含所有schema的列表
 SECURITY_INFO_SCHEMAS_LIST = [
-    ETF_INFO_SCHEMA
+    ETF_INFO_SCHEMA,
+    STOCK_INFO_SCHEMA
 ]
 
 __all__ = [

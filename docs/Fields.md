@@ -13,7 +13,7 @@
 ## 库
 
 - **trade_calendar**：交易日历库，存放各数据源的交易日历数据（如 `akshare_trade_calendar` 等）。
-- **security_info**：证券信息库，存放 ETF 等基础信息（如 `etf_info` 表）。
+- **security_info**：证券信息库，存放 ETF、沪深股票等基础信息（如 **`etf_info`**、**`stock_info`** 表）。
 - **daily_trade_data**：日线交易数据库（如 **`etf_daily_trade_data`** 表，多标的共表，主键 **`(code, trade_date)`**）。
 - **minutely_trade_data**：分钟交易数据库（按标的分表 **`etf_minutely_trade_data_<code>`**）。
 
@@ -36,6 +36,17 @@
 | code | TEXT | ETF在证券市场上代码，如 159718 (无后缀) | True | 888888 |
 | name | TEXT | ETF名称 | False | 未知ETF |
 | exchange | TEXT | ETF所在交易所，如SH，SZ | False | 未知交易所 |
+| last_update_date | TEXT | 最后更新日期，格式为yyyy-mm-dd，每次更新后覆盖 | False | 上次更新的日期 |
+
+#### stock_info表  
+
+与 **`etf_info`** 列结构一致，语义为**股票**（麦蕊 `hslt/list` 拉取后归一化写入）。
+
+| 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
+| ------ | ---- | ---- | ---- | ------ |
+| code | TEXT | 股票代码（无市场后缀，如 600000） | True | 888888 |
+| name | TEXT | 股票名称 | False | 未知股票 |
+| exchange | TEXT | 所在交易所（如 SH、SZ） | False | 未知交易所 |
 | last_update_date | TEXT | 最后更新日期，格式为yyyy-mm-dd，每次更新后覆盖 | False | 上次更新的日期 |
 
 ### daily_trade_data库

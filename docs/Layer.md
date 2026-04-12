@@ -95,8 +95,9 @@ mktdata/
       ...
     stock_api/
       ...
-    security_info/                # 如麦蕊 ETF 列表
+    security_info/                # 麦蕊证券基础信息（ETF 列表、沪深股票列表等）
       eft_info_by_mairui.py
+      stock_info_by_mairui.py
     daily_trade_data/             # 麦蕊 ETF 日线等
       etf_daily_trade_data_by_mairui.py
     minutely_trade_data/          # 麦蕊 ETF 分钟等
@@ -109,6 +110,7 @@ mktdata/
       update_stock_api_trade_calendar.py
     security_info/
       update_etf_info.py
+      update_stock_info.py
     daily_trade_data/
       update_etf_daily_trade_data.py
     minutely_trade_data/
@@ -116,7 +118,7 @@ mktdata/
       update_minutely_trade_data_afternoon.py
     ...
   update_trade_calendar.py        # 交易日历域入口，JOBS_REGISTRY 顺序执行
-  update_security_info.py         # 证券信息域入口（如 ETF），JOBS_REGISTRY 顺序执行
+  update_security_info.py         # 证券信息域入口（ETF、股票列表等），JOBS_REGISTRY 顺序执行
   update_daily_trade_data.py      # 日线交易数据域入口
   update_minutely_trade_data_morning.py   # 分钟数据（早盘）
   update_minutely_trade_data_afternoon.py # 分钟数据（午盘）
