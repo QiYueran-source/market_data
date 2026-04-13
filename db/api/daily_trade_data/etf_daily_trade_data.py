@@ -55,9 +55,9 @@ def get_etf_daily_trade_data(
         codes = [codes]
     # 日期参数
     if isinstance(start_date, str):
-        start_date = dt.date.strptime(start_date, '%Y-%m-%d')
+        start_date = dt.datetime.strptime(start_date, '%Y-%m-%d').date()
     if isinstance(end_date, str):
-        end_date = dt.date.strptime(end_date, '%Y-%m-%d')
+        end_date = dt.datetime.strptime(end_date, '%Y-%m-%d').date()
     if start_date > end_date:
         raise ValueError('start_date不能大于end_date')
     start_datetime = dt.datetime.combine(start_date, dt.time(0, 0, 0))
