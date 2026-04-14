@@ -70,7 +70,7 @@
 
 | 脚本 | 典型用途 |
 |------|----------|
-| `update_daily_trade_data.py` | 更新 ETF 日线（依赖交易日与证券列表）。 |
+| `update_daily_data.py` | 更新 ETF 日线与 ETF 复权因子（依赖交易日与证券列表；顺序见脚本内 **`JOBS_REGISTRY`**）。 |
 | `update_minutely_trade_data_morning.py` / `update_minutely_trade_data_afternoon.py` | 早盘 / 午盘分钟线更新（共享逻辑见 `jobs/minutely_trade_data/shared_config.py`）。 |
 | `update_security_info.py` | 更新证券基础信息（当前注册：**ETF 列表**、**股票列表**；顺序见脚本内 **`JOBS_REGISTRY`**）。 |
 | `update_trade_calendar.py` | 更新交易日历。 |

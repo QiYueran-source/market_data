@@ -91,7 +91,7 @@ class SlidingWindowLimiter:
 
 # 全局限流器
 TEST_LIMITER = SlidingWindowLimiter(window_sec=30, max_requests=60)
-TUSHARE_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
+TUSHARE_LIMITER = SlidingWindowLimiter(window_sec=60, max_requests=100)
 MAIRUI_LIMITER = SlidingWindowLimiter(window_sec=60, max_requests=300)
 AKSHARE_LIMITER = SlidingWindowLimiter(window_sec=1, max_requests=100)
 STOCK_API_TRADE_CALENDAR_LIMITER = SlidingWindowLimiter(window_sec=60, max_requests=40)

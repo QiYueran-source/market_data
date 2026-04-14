@@ -50,3 +50,16 @@
 |t|交易时间 格式为yyyy-mm-dd hh:mm:ss|
 
 该API可以用于日线和分钟线数据（因为是实时） 
+
+## TuShare  
+### ETF 复权因子数据
+
+| 接口 | URL | 请求方式 | 请求参数 | 正确返回结果示例 | 异常结果示例 | 限流 | 更新时间 |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| ETF 复权因子数据 | pro.fund_adj | ts_code trade_date start_date end_date offset limit | ts_code:000001.SZ, trade_date:20260414, start_date:20260414, end_date:20260414, offset:0, limit:1000 | pandas.DataFrame({ts_code: str, trade_date: str, adj_factor: float}) | 裸Exception | 约 **100 次 / 1s**（滑动窗口，与 `providers/provider_utils/api_limiter.py` → **`TUSHARE_LIMITER`** 一致） | 下午16:00后保险 |  
+
+### 股票日线数据  
+
+| 接口 | 函数 | 请求方式 | 请求参数 | 正确返回结果示例 | 异常结果示例 | 限流 | 更新时间 |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| 股票日线数据 | `ts.pro_api().daily()` | ts_code='000001.SZ', start_date='20180701', end_date='20180718' | ts_code:000001.SZ, start_date:20180701, end_date:20180718 | pandas.DataFrame | 裸Exception | 约 **100 次 / 1s**（滑动窗口，与 `providers/provider_utils/api_limiter.py` → **`TUSHARE_LIMITER`** 一致） | 下午16:00后保险 |  

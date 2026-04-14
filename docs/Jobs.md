@@ -8,7 +8,7 @@
 ## 入口约定
 
 - 每个 update 模块暴露 **`run()`**，无参或仅关键字参数（如日后按日期补数），由调度或聚合脚本调用；宜返回 **`JobInfo`**（见下节），便于域级入口发汇总邮件。
-- **域级入口**（项目根）：按业务域拆分脚本，内建有序 **`JOBS_REGISTRY`**（`job_name → run`），**`main()`** 按注册顺序依次执行；**cron** 宜分别指向各域入口，例如 **`update_trade_calendar.py`**（交易日历）、**`update_security_info.py`**（证券信息：ETF 列表、股票列表等）、**`update_daily_trade_data.py`**（日线交易数据）、**`update_minutely_trade_data_morning.py`** / **`update_minutely_trade_data_afternoon.py`**（分钟交易数据），或使用 `python -m` 等价入口。
+- **域级入口**（项目根）：按业务域拆分脚本，内建有序 **`JOBS_REGISTRY`**（`job_name → run`），**`main()`** 按注册顺序依次执行；**cron** 宜分别指向各域入口，例如 **`update_trade_calendar.py`**（交易日历）、**`update_security_info.py`**（证券信息：ETF 列表、股票列表等）、**`update_daily_data.py`**（ETF 日线、ETF 复权因子）、**`update_minutely_trade_data_morning.py`** / **`update_minutely_trade_data_afternoon.py`**（分钟交易数据），或使用 `python -m` 等价入口。
 - 运行前需保证 **`PYTHONPATH` 含项目根**（或先调用 **`utils.add_root_path()`**，与现有脚本一致）。
 
 ## 执行结果与通知（JobInfo）
@@ -31,9 +31,10 @@
 | `jobs/security_info/update_stock_info.py` | 更新 `stock_info` 表（麦蕊股票列表）；**`run()`** 可按间隔与交易日历条件跳过，返回 **`JobInfo`** |
 | `update_trade_calendar.py` | 交易日历域：注册并顺序执行 job；汇总 **`JobInfo`** 后发邮件 |
 | `update_security_info.py` | 证券信息域：注册并顺序执行 **`update_etf_info`**、**`update_stock_info`** 等；汇总 **`JobInfo`** 后发邮件 |
-| `update_daily_trade_data.py` | 日线交易数据域：注册并执行 **`update_etf_daily_trade_data`**；汇总 **`JobInfo`** 后发邮件 |
+| `update_daily_data.py` | 日线数据域：顺序执行 **`update_etf_daily_trade_data`**、**`update_adjustment_factor`**；汇总 **`JobInfo`** 后发邮件 |
 | `update_minutely_trade_data_morning.py` | 分钟数据（早盘）：注册并执行对应 job；汇总邮件（实现与日线域入口类似） |
 | `update_minutely_trade_data_afternoon.py` | 分钟数据（午盘）：同上 |
 | `jobs/daily_trade_data/update_etf_daily_trade_data.py` | 更新 **`daily_trade_data.db`** → **`etf_daily_trade_data`**；按批调用 Provider、`Buffer` 攒批写库；**`run()`** 返回 **`JobInfo`** |
+| `jobs/adjustment_factor/update_adjustment_factor.py` | 更新 **`adjustment_factor.db`** → **`etf_adjustment_factor`**；**`run()`** 返回 **`JobInfo`** |
 | `jobs/minutely_trade_data/update_minutely_trade_data_morning.py` | 分钟数据（早盘时段循环）；**`run()`** 返回 **`JobInfo`** |
 | `jobs/minutely_trade_data/update_minutely_trade_data_afternoon.py` | 分钟数据（午盘时段循环）；**`run()`** 返回 **`JobInfo`** |

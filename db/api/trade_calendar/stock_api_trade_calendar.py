@@ -89,4 +89,6 @@ def is_trade_date(
     '''
     with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
         df = pd.read_sql_query(query, conn)
+    if df.empty:
+        return False
     return df['is_open'].iloc[0] == 1

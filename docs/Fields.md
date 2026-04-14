@@ -16,6 +16,7 @@
 - **security_info**：证券信息库，存放 ETF、沪深股票等基础信息（如 **`etf_info`**、**`stock_info`** 表）。
 - **daily_trade_data**：日线交易数据库（如 **`etf_daily_trade_data`** 表，多标的共表，主键 **`(code, trade_date)`**）。
 - **minutely_trade_data**：分钟交易数据库（按标的分表 **`etf_minutely_trade_data_<code>`**）。
+- **adjustment_factor**：复权因子库，存放证券的复权因子数据（如 **`etf_adjustment_factor`** 表）。
 
 
 ## 表
@@ -96,4 +97,16 @@ Provider（mairui）容错策略：仅 `p/cje/v/t` 为必填字段；其余字�
 | turnover_rate | REAL | 换手率 | False | 0.0 |    
 | pe_ratio | REAL | 市盈率 | False | 0.0 |  
  
+### adjustment_factor库
+#### etf_adjustment_factor表  
+
+该表通过 TuShare API（`pro.fund_adj`）获取，按 `code`、`trade_date` 存储 ETF 复权因子。
+Provider（tushare）在拉取失败或校验失败时会走兜底数据路径，并将原因记录到 `fallback_records`；最终写库仍以 `schema/adjustment_factor/etf_adjustment_factor.py` 的字段定义为准。
+
+| 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
+| ------ | ---- | ---- | ---- | ------ |
+| code | TEXT | ETF代码，如 159718 (无后缀) | True | 888888 |
+| trade_date | TEXT | 交易时间，格式为yyyy-mm-dd | True | 当前日期 |
+| pre_adjustment_factor | REAL | 前复权因子 | False | 0.0 |
+| post_adjustment_factor | REAL | 后复权因子 | False | 0.0 |
 

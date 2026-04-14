@@ -1,5 +1,5 @@
 '''
-更新每日交易数据  
+更新每日交易数据和ETF复权因子
 '''
 # 添加根目录
 from utils import add_root_path
@@ -14,14 +14,16 @@ from utils.emails import send_email
 
 # 日志
 from utils import get_logger
-logger = get_logger('update_daily_trade_data_job')
+logger = get_logger('update_daily_data_job')
 
 # 导入jobs
 from jobs.daily_trade_data import update_etf_daily_trade_data
+from jobs.adjustment_factor import update_adjustment_factor
 
 # 注册表
 JOBS_REGISTRY = {
-    'update_etf_daily_trade_data': update_etf_daily_trade_data.run
+    'update_etf_daily_trade_data': update_etf_daily_trade_data.run,
+    'update_adjustment_factor': update_adjustment_factor.run
 }
 
 # 需要捕获的异常
@@ -44,7 +46,7 @@ def main():
             continue
     
     # 发送邮件（主题与正文由模板生成）
-    subject = '每日交易数据更新统计'
+    subject = '每日交易数据和复权因子更新统计'
     content = gen_job_statics_body(jobs_nums, success_jobs_nums)
     for info in info_list:
         content += jobinfo_to_email_body(info)

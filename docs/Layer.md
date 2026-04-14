@@ -119,7 +119,7 @@ mktdata/
     ...
   update_trade_calendar.py        # 交易日历域入口，JOBS_REGISTRY 顺序执行
   update_security_info.py         # 证券信息域入口（ETF、股票列表等），JOBS_REGISTRY 顺序执行
-  update_daily_trade_data.py      # 日线交易数据域入口
+  update_daily_data.py            # 日线数据域入口（ETF 日线、ETF 复权因子）
   update_minutely_trade_data_morning.py   # 分钟数据（早盘）
   update_minutely_trade_data_afternoon.py # 分钟数据（午盘）
   schema/                         # 各库表结构定义（如 trade_calendar、security_info）；基于 utils.schema 拼装
