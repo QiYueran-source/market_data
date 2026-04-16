@@ -9,7 +9,7 @@ API: pro.fund_adj
 返回: pandas.DataFrame
     - ts_code: str
     - trade_date: str
-    - pre_adjustment_factor: float
+    - post_adjustment_factor: float
 
 '''
 import os
@@ -107,7 +107,7 @@ def fetch(
         {
             'ts_code': 'code',
             'trade_date': 'trade_date',
-            'adj_factor': 'pre_adjustment_factor',
+            'adj_factor': 'post_adjustment_factor',
         },
         axis=1,
         inplace=True
@@ -117,8 +117,8 @@ def fetch(
     try:
         df['code'] = df['code'].astype(str)
         df['trade_date'] = df['trade_date'].astype(str)
-        df['pre_adjustment_factor'] = pd.to_numeric(
-            df['pre_adjustment_factor'], errors='raise'
+        df['post_adjustment_factor'] = pd.to_numeric(
+            df['post_adjustment_factor'], errors='raise'
         ).astype('float64')
     except (ValueError, TypeError) as e:
         logger.exception(
@@ -174,7 +174,7 @@ def _handle_error(
         codes=codes,
         start_date='2020-01-01',
         end_date=history_end_date,
-        columns=['code', 'trade_date', 'pre_adjustment_factor']
+        columns=['code', 'trade_date', 'post_adjustment_factor']
     )
 
     if history_df.empty:
@@ -188,10 +188,10 @@ def _handle_error(
         raise ValueError('本地历史复权因子无有效日期，无法兜底')
 
     latest_df['trade_date'] = target_date.strftime('%Y-%m-%d')
-    latest_df['pre_adjustment_factor'] = pd.to_numeric(
-        latest_df['pre_adjustment_factor'], errors='coerce'
+    latest_df['post_adjustment_factor'] = pd.to_numeric(
+        latest_df['post_adjustment_factor'], errors='coerce'
     ).fillna(0.0)
-    latest_df = latest_df[['code', 'trade_date', 'pre_adjustment_factor']]
+    latest_df = latest_df[['code', 'trade_date', 'post_adjustment_factor']]
     return latest_df.reset_index(drop=True)
 
 def fetch_and_clean(
@@ -207,7 +207,7 @@ def fetch_and_clean(
         {
             'code': ['888888'],
             'trade_date': [dt.date.today().strftime('%Y-%m-%d')],
-            'pre_adjustment_factor': [0.0],
+            'post_adjustment_factor': [0.0],
         }
     )
 

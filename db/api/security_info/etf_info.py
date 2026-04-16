@@ -15,7 +15,7 @@ import pandas as pd
 from typing import List, Sequence, Literal
 
 # 常量
-from . import _security_info_db
+from db.api.security_info import _security_info_db
 
 DB_NAME = _security_info_db.SECURITY_INFO_DB_NAME
 TABLE_NAME = 'etf_info'
