@@ -15,11 +15,11 @@ import pandas as pd
 from typing import List, Sequence, Literal
 
 # 常量
-from db.api.security_info import _security_info_db
+from db.api.security_info import _security_info_query
 
-DB_NAME = _security_info_db.SECURITY_INFO_DB_NAME
+DB_NAME = _security_info_query.SECURITY_INFO_DB_NAME
 TABLE_NAME = 'etf_info'
-_SELECT = _security_info_db.SELECT_ALL_COLS
+_SELECT = _security_info_query.SELECT_ALL_COLS
 
 # etf_info.exchange 存大写市场码，与库中一致
 _ALLOWED_ETF_EXCHANGES = frozenset({'SH', 'SZ'})
@@ -43,7 +43,7 @@ def get_all_etf_info() -> pd.DataFrame:
             - last_update_date: str 最后更新日期
     '''
     q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE code != ?'
-    return _security_info_db.read_sql(q, _fb())
+    return _security_info_query.read_sql(q, _fb())
 
 
 def get_etf_list() -> List[str]:
@@ -55,7 +55,7 @@ def get_etf_list() -> List[str]:
             - str: ETF代码
     '''
     q = f'SELECT code FROM {TABLE_NAME} WHERE code != ?'
-    df = _security_info_db.read_sql(q, _fb())
+    df = _security_info_query.read_sql(q, _fb())
     return df['code'].tolist()
 
 
@@ -79,7 +79,7 @@ def get_latest_etf_info() -> pd.DataFrame:
         )
         AND code != ?
     '''
-    return _security_info_db.read_sql(q, _fb())
+    return _security_info_query.read_sql(q, _fb())
 
 
 def get_latest_etf_list() -> List[str]:
@@ -97,7 +97,7 @@ def get_latest_etf_list() -> List[str]:
     )
     AND code != ?
     '''
-    df = _security_info_db.read_sql(q, _fb())
+    df = _security_info_query.read_sql(q, _fb())
     return df['code'].tolist()
 
 
@@ -117,12 +117,12 @@ def get_etf_info_by_code(code: str | Sequence[str]) -> pd.DataFrame:
     if isinstance(code, str):
         q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE code = ? AND code != ?'
         params: tuple[str, ...] = (code, FALLBACK_ETF_CODE)
-        return _security_info_db.read_sql(q, params)
+        return _security_info_query.read_sql(q, params)
     if isinstance(code, Sequence):
         ph = ','.join(['?'] * len(code))
         q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE code IN ({ph}) AND code != ?'
         params = tuple(code) + (FALLBACK_ETF_CODE,)
-        return _security_info_db.read_sql(q, params)
+        return _security_info_query.read_sql(q, params)
     raise TypeError(f'code 类型不支持: {type(code)}')
 
 
@@ -158,7 +158,7 @@ def match_etf_info_by_concept(concepts: str | Sequence[str]) -> pd.DataFrame:
     conds = ' OR '.join(['instr(name, ?) > 0'] * len(keywords))
     q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE ({conds}) AND code != ?'
     params = tuple(keywords) + (FALLBACK_ETF_CODE,)
-    return _security_info_db.read_sql(q, params)
+    return _security_info_query.read_sql(q, params)
 
 
 def _normalize_exchange_values(exchanges: str | Sequence[str]) -> list[str]:
@@ -216,7 +216,7 @@ def match_etf_info_by_exchange(
         placeholders = ','.join(['?'] * len(values))
         q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE exchange IN ({placeholders}) AND code != ?'
         params = tuple(values) + (FALLBACK_ETF_CODE,)
-    return _security_info_db.read_sql(q, params)
+    return _security_info_query.read_sql(q, params)
 
 
 def get_latest_update_date() -> dt.date:
@@ -228,7 +228,7 @@ def get_latest_update_date() -> dt.date:
 
     表为空或 MAX(last_update_date) 为 NULL 时抛出 ValueError。
     '''
-    raw = _security_info_db.fetch_max_last_update_date(TABLE_NAME)
+    raw = _security_info_query.fetch_max_last_update_date(TABLE_NAME)
     if raw is None:
         raise ValueError('etf_info 无有效 last_update_date（表为空或列为 NULL）')
     return dt.datetime.strptime(raw, '%Y-%m-%d').date()
