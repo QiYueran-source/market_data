@@ -3,19 +3,17 @@ ETF日线交易数据API
 - get_etf_daily_trade_data(): 获取ETF日线交易数据
 '''
 # 库
-import os 
 import datetime as dt
-import sqlite3
 import pandas as pd
 from typing import List, Literal
 
 # 常量
-from db import DB_DIR
 from db.api.adjustment_factor import etf_adjustment_factor
 from db.api.security_info import etf_info
-DB_NAME = 'daily_trade_data.db'
+from . import _daily_trade_data_query
+
+DB_NAME = _daily_trade_data_query.DAILY_TRADE_DATA_DB_NAME
 TABLE_NAME = 'etf_daily_trade_data'
-ETF_LIST = etf_info.get_etf_list()
 
 # 列
 COLUMNS_LITERAL = Literal['trade_date', 'code', 'yesterday_close_price', 'open', 'high', 'low', 'close', 'volume', 'amount', 'up_down', 'up_down_rate', 'turnover_rate', 'amplitude', 'original_volume', 'pe_ratio']
@@ -30,8 +28,8 @@ ADJUSTABLE_COLUMNS = (
 
 def get_etf_daily_trade_data(
     codes:str |List[str],
-    start_date:str | dt.date = dt.date(2020, 1, 1),
-    end_date:str | dt.date = dt.date.today(),
+    start_date: str | dt.date | dt.datetime | pd.Timestamp = dt.date(2020, 1, 1),
+    end_date: str | dt.date | dt.datetime | pd.Timestamp | None = None,
     columns:List[COLUMNS_LITERAL] | Literal['all'] = 'all',
     adjustment_factor:Literal['none', 'pre', 'post'] = 'none'
 )->pd.DataFrame:
@@ -43,7 +41,7 @@ def get_etf_daily_trade_data(
         - start_date: str | dt.date 开始日期
         - end_date: str | dt.date 结束日期
         - columns: List[COLUMNS_LITERAL] | 'all' 列名，'all'表示所有列
-        - adjustment_factor: Literal['none', 'pre', 'post'] 复权因子，'none'表示不使用复权因子，'pre'表示使用前复权因子，'post'表示使用后复权因子
+        - adjustment_factor: Literal['none', 'pre', 'post'] 复权因子，当前仅支持 'none' 与 'post'
 
     - 返回
         - pandas.DataFrame: ETF日线交易数据
@@ -64,39 +62,30 @@ def get_etf_daily_trade_data(
             - pe_ratio: float 市盈率
     '''
     # 代码参数
-    if isinstance(codes, str):
-        codes = [codes]
-    if not codes:
-        raise ValueError('codes不能为空')
-    if not all(code in ETF_LIST for code in codes):
-        missing_codes = [code for code in codes if code not in ETF_LIST]
+    codes = _daily_trade_data_query.normalize_codes(codes)
+    etf_code_set = set(etf_info.get_etf_list())
+    if not all(code in etf_code_set for code in codes):
+        missing_codes = [code for code in codes if code not in etf_code_set]
         raise ValueError(f'codes: {missing_codes} 不在ETF列表中')
 
     # 日期参数
-    if isinstance(start_date, str):
-        start_date = dt.datetime.strptime(start_date, '%Y-%m-%d').date()
-    if isinstance(end_date, str):
-        end_date = dt.datetime.strptime(end_date, '%Y-%m-%d').date()
+    start_date = _daily_trade_data_query.as_date(start_date, field_name='start_date')
+    end_date = _daily_trade_data_query.as_date(
+        end_date,
+        field_name='end_date',
+        default=dt.date.today(),
+    )
     if start_date > end_date:
         raise ValueError('start_date不能大于end_date')
-    start_datetime = dt.datetime.combine(start_date, dt.time(0, 0, 0))
-    end_datetime = dt.datetime.combine(end_date, dt.time(23, 59, 59))
 
     # 复权参数
     if adjustment_factor not in ('none', 'pre', 'post'):
         raise ValueError("adjustment_factor必须是'none'、'pre'或'post'")
+    if adjustment_factor == 'pre':
+        raise ValueError("当前不支持前复权，请使用 adjustment_factor='post' 或 'none'")
 
     # 列参数
-    if columns == 'all':
-        selected_columns = '*'
-    else:
-        if not columns:
-            raise ValueError('columns不能为空')
-        invalid_columns = [col for col in columns if col not in ALL_COLUMNS]
-        if invalid_columns:
-            raise ValueError(f'columns: {invalid_columns} 非法')
-        # 保持用户给定列顺序，避免 set 打乱顺序
-        selected_columns = ', '.join(columns)
+    selected_columns = _daily_trade_data_query.select_columns(columns, ALL_COLUMNS)
 
     placeholders = ','.join(['?' for _ in codes])
     query = f'''
@@ -104,19 +93,16 @@ def get_etf_daily_trade_data(
         FROM {TABLE_NAME}
         WHERE code IN ({placeholders})
         AND trade_date BETWEEN ? AND ?
+        ORDER BY code, trade_date
     '''
-    params = tuple(codes) + (start_datetime, end_datetime)
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn, params=params)
+    params = tuple(codes) + (start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+    df = _daily_trade_data_query.read_sql(query, params)
 
     # 无复权或空结果，直接返回
     if adjustment_factor == 'none' or df.empty:
         return df
 
-    factor_column = (
-        'pre_adjustment_factor' if adjustment_factor == 'pre'
-        else 'post_adjustment_factor'
-    )
+    factor_column = 'post_adjustment_factor'
     factor_df = etf_adjustment_factor.get_etf_adjustment_factor(
         codes=codes,
         start_date=start_date,
