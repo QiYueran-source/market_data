@@ -4,17 +4,21 @@
 - get_trade_calendar_by_date() 获取一个日期的交易日历数据  
 - is_trade_date() 判断一个日期是不是交易日
 '''
-import os
+# 库
 import datetime as dt
 import pandas as pd
-import sqlite3
-from db import DB_DIR
-DB_NAME = 'trade_calendar.db'
+
+# 内部方法
+from db.api.trade_calendar import _calendar_query
+
+# 数据库常量
+DB_NAME = _calendar_query.TRADE_CALENDAR_DB_NAME
 TABLE_NAME = 'akshare_trade_calendar'
 
+
 def get_trade_calendar(
-    start_date: dt.date | str = '1990-01-01', 
-    end_date: dt.date | str = '2024-12-31',
+    start_date: dt.date | dt.datetime | str | pd.Timestamp = '1990-01-01',
+    end_date: dt.date | dt.datetime | str | pd.Timestamp = '2024-12-31',
 ) -> pd.DataFrame:
     '''
     获取交易日历数据
@@ -28,21 +32,13 @@ def get_trade_calendar(
         - calendar_date : str 日期   
         - is_open : 0表示非交易日，1表示交易日
     '''
-    if isinstance(start_date, str):
-        start_date = dt.datetime.strptime(start_date, '%Y-%m-%d').date()
-    if isinstance(end_date, str):
-        end_date = dt.datetime.strptime(end_date, '%Y-%m-%d').date()
-    if start_date > end_date:
-        raise ValueError('起始日期不能大于结束日期')
-    query = f'''
-        SELECT * FROM {TABLE_NAME} WHERE calendar_date BETWEEN '{start_date}' AND '{end_date}'
-    '''
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn)
-    return df
+    s = _calendar_query.as_calendar_date(start_date)
+    e = _calendar_query.as_calendar_date(end_date)
+    return _calendar_query.select_range(TABLE_NAME, s, e)
+
 
 def get_trade_calendar_by_date(
-    date: dt.date | str,
+    date: dt.date | dt.datetime | str | pd.Timestamp,
 ) -> pd.DataFrame:
     '''
     获取指定日期的交易日历数据
@@ -50,22 +46,17 @@ def get_trade_calendar_by_date(
     参数：
     - date: 日期，格式为yyyy-mm-dd
 
-    返回
+    返回：
     - pandas.DataFrame: 交易日历数据  
         - calendar_date : str 日期   
         - is_open : 0表示非交易日，1表示交易日
     '''
-    if isinstance(date, str):
-        date = dt.datetime.strptime(date, '%Y-%m-%d').date()
-    query = f'''
-        SELECT * FROM {TABLE_NAME} WHERE calendar_date = '{date}'
-    '''
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn)
-    return df
+    d = _calendar_query.as_calendar_date(date)
+    return _calendar_query.select_by_date(TABLE_NAME, d)
+
 
 def is_trade_date(
-    date: dt.date | str,
+    date: dt.date | dt.datetime | str | pd.Timestamp,
 ) -> bool:
     '''
     判断指定日期是否为交易日
@@ -76,13 +67,8 @@ def is_trade_date(
     返回：
     - bool: 是否为交易日
     '''
-    if isinstance(date, str):
-        date = dt.datetime.strptime(date, '%Y-%m-%d').date()
-    query = f'''
-        SELECT is_open FROM {TABLE_NAME} WHERE calendar_date = '{date}'
-    '''
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn)
-    if df.empty:
+    d = _calendar_query.as_calendar_date(date)
+    v = _calendar_query.fetch_is_open(TABLE_NAME, d)
+    if v is None:
         return False
-    return df['is_open'].iloc[0] == 1
+    return v == 1

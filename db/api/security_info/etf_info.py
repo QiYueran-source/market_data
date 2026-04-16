@@ -10,16 +10,16 @@ etf_info表的API接口
 - get_latest_update_date() 获取最新更新日期  
 '''
 # 库
-import os
 import datetime as dt
 import pandas as pd
-import sqlite3
 from typing import List, Sequence, Literal
 
 # 常量
-from db import DB_DIR
-DB_NAME = 'security_info.db'
+from . import _security_info_db
+
+DB_NAME = _security_info_db.SECURITY_INFO_DB_NAME
 TABLE_NAME = 'etf_info'
+_SELECT = _security_info_db.SELECT_ALL_COLS
 
 # etf_info.exchange 存大写市场码，与库中一致
 _ALLOWED_ETF_EXCHANGES = frozenset({'SH', 'SZ'})
@@ -27,7 +27,11 @@ _ALLOWED_ETF_EXCHANGES = frozenset({'SH', 'SZ'})
 # 兜底ETF
 FALLBACK_ETF_CODE = '888888'
 
-def get_all_etf_info()->pd.DataFrame:
+def _fb() -> tuple[str]:
+    return (FALLBACK_ETF_CODE,)
+
+
+def get_all_etf_info() -> pd.DataFrame:
     '''
     获取所有ETF信息
 
@@ -38,13 +42,11 @@ def get_all_etf_info()->pd.DataFrame:
             - exchange: str ETF所在交易所
             - last_update_date: str 最后更新日期
     '''
-    query = f'SELECT * FROM {TABLE_NAME}'
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn)
-    df = df[df['code'] != FALLBACK_ETF_CODE]
-    return df
+    q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE code != ?'
+    return _security_info_db.read_sql(q, _fb())
 
-def get_etf_list()->List[str]:
+
+def get_etf_list() -> List[str]:
     '''
     获取ETF列表  
 
@@ -52,13 +54,12 @@ def get_etf_list()->List[str]:
         - List[str]: ETF列表
             - str: ETF代码
     '''
-    query = f'SELECT code FROM {TABLE_NAME}'
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn)
-    df = df[df['code'] != FALLBACK_ETF_CODE]
+    q = f'SELECT code FROM {TABLE_NAME} WHERE code != ?'
+    df = _security_info_db.read_sql(q, _fb())
     return df['code'].tolist()
 
-def get_latest_etf_info()->pd.DataFrame:
+
+def get_latest_etf_info() -> pd.DataFrame:
     '''
     获取最新ETF信息  
 
@@ -71,18 +72,17 @@ def get_latest_etf_info()->pd.DataFrame:
             - exchange: str ETF所在交易所
             - last_update_date: str 最后更新日期
     '''
-    query = f'''
-    SELECT * FROM {TABLE_NAME}
+    q = f'''
+    SELECT {_SELECT} FROM {TABLE_NAME}
         WHERE last_update_date = (
             SELECT MAX(last_update_date) FROM {TABLE_NAME}
         )
+        AND code != ?
     '''
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn)
-    df = df[df['code'] != FALLBACK_ETF_CODE]
-    return df
+    return _security_info_db.read_sql(q, _fb())
 
-def get_latest_etf_list()->List[str]:
+
+def get_latest_etf_list() -> List[str]:
     '''
     获取最新ETF列表
 
@@ -90,18 +90,18 @@ def get_latest_etf_list()->List[str]:
         - List[str]: 最新ETF列表
             - str: ETF代码
     '''
-    query = f'''
+    q = f'''
     SELECT code FROM {TABLE_NAME}
     WHERE last_update_date = (
         SELECT MAX(last_update_date) FROM {TABLE_NAME}
     )
+    AND code != ?
     '''
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn)
-    df = df[df['code'] != FALLBACK_ETF_CODE]
+    df = _security_info_db.read_sql(q, _fb())
     return df['code'].tolist()
 
-def get_etf_info_by_code(code:str | Sequence[str])->pd.DataFrame:
+
+def get_etf_info_by_code(code: str | Sequence[str]) -> pd.DataFrame:
     '''
     获取指定代码的ETF信息
 
@@ -115,15 +115,15 @@ def get_etf_info_by_code(code:str | Sequence[str])->pd.DataFrame:
     if not code:
         raise ValueError('code不能为空')
     if isinstance(code, str):
-        query = f'SELECT * FROM {TABLE_NAME} WHERE code = ?'
-        with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-            df = pd.read_sql_query(query, conn, params=(code,))
-    elif isinstance(code, Sequence):
-        query = f'SELECT * FROM {TABLE_NAME} WHERE code IN ({",".join(["?"] * len(code))})'
-        with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-            df = pd.read_sql_query(query, conn, params=tuple(code))
-    df = df[df['code'] != FALLBACK_ETF_CODE]
-    return df
+        q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE code = ? AND code != ?'
+        params: tuple[str, ...] = (code, FALLBACK_ETF_CODE)
+        return _security_info_db.read_sql(q, params)
+    if isinstance(code, Sequence):
+        ph = ','.join(['?'] * len(code))
+        q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE code IN ({ph}) AND code != ?'
+        params = tuple(code) + (FALLBACK_ETF_CODE,)
+        return _security_info_db.read_sql(q, params)
+    raise TypeError(f'code 类型不支持: {type(code)}')
 
 
 def _normalize_concept_keywords(concepts: str | Sequence[str]) -> list[str]:
@@ -137,6 +137,7 @@ def _normalize_concept_keywords(concepts: str | Sequence[str]) -> list[str]:
     if not keywords:
         raise ValueError('concepts不能为空')
     return keywords
+
 
 def match_etf_info_by_concept(concepts: str | Sequence[str]) -> pd.DataFrame:
     '''
@@ -155,11 +156,10 @@ def match_etf_info_by_concept(concepts: str | Sequence[str]) -> pd.DataFrame:
     '''
     keywords = _normalize_concept_keywords(concepts)
     conds = ' OR '.join(['instr(name, ?) > 0'] * len(keywords))
-    query = f'SELECT * FROM {TABLE_NAME} WHERE {conds}'
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn, params=tuple(keywords))
-    df = df[df['code'] != FALLBACK_ETF_CODE]
-    return df
+    q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE ({conds}) AND code != ?'
+    params = tuple(keywords) + (FALLBACK_ETF_CODE,)
+    return _security_info_db.read_sql(q, params)
+
 
 def _normalize_exchange_values(exchanges: str | Sequence[str]) -> list[str]:
     '''
@@ -183,7 +183,6 @@ def _normalize_exchange_values(exchanges: str | Sequence[str]) -> list[str]:
         canonical.append(e)
     if not canonical:
         raise ValueError('exchanges不能为空')
-    # 去重且保持顺序
     seen: set[str] = set()
     out: list[str] = []
     for x in canonical:
@@ -191,6 +190,7 @@ def _normalize_exchange_values(exchanges: str | Sequence[str]) -> list[str]:
             seen.add(x)
             out.append(x)
     return out
+
 
 def match_etf_info_by_exchange(
     exchanges: Literal['SH', 'SZ'] | str | Sequence[str],
@@ -210,25 +210,25 @@ def match_etf_info_by_exchange(
     '''
     values = _normalize_exchange_values(exchanges)
     if len(values) == 1:
-        query = f'SELECT * FROM {TABLE_NAME} WHERE exchange = ?'
-        params: tuple[str, ...] = (values[0],)
+        q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE exchange = ? AND code != ?'
+        params = (values[0], FALLBACK_ETF_CODE)
     else:
         placeholders = ','.join(['?'] * len(values))
-        query = f'SELECT * FROM {TABLE_NAME} WHERE exchange IN ({placeholders})'
-        params = tuple(values)
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn, params=params)
-    df = df[df['code'] != FALLBACK_ETF_CODE]
-    return df
+        q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE exchange IN ({placeholders}) AND code != ?'
+        params = tuple(values) + (FALLBACK_ETF_CODE,)
+    return _security_info_db.read_sql(q, params)
 
-def get_latest_update_date()->dt.date:
+
+def get_latest_update_date() -> dt.date:
     '''
     获取最新更新日期
 
     - 返回
         - dt.date: 最新更新日期
+
+    表为空或 MAX(last_update_date) 为 NULL 时抛出 ValueError。
     '''
-    query = f'SELECT MAX(last_update_date) AS last_update_date FROM {TABLE_NAME}'
-    with sqlite3.connect(os.path.join(DB_DIR, DB_NAME)) as conn:
-        df = pd.read_sql_query(query, conn)
-    return dt.datetime.strptime(df['last_update_date'].tolist()[0], '%Y-%m-%d').date()
+    raw = _security_info_db.fetch_max_last_update_date(TABLE_NAME)
+    if raw is None:
+        raise ValueError('etf_info 无有效 last_update_date（表为空或列为 NULL）')
+    return dt.datetime.strptime(raw, '%Y-%m-%d').date()
