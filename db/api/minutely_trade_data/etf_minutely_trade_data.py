@@ -102,17 +102,26 @@ def _apply_adjustment(
     merged[factor_column] = pd.to_numeric(
         merged[factor_column], errors='coerce'
     )
-    # 不再默认填充1.0，缺失的复权因子保持为NaN
+    # 复权因子缺失时，对应的可调整价格字段也设为NaN
 
+    # 先对所有可调整列做数值转换
     for col in adjustable_columns:
         if col in merged.columns:
-            # 只对存在复权因子的行进行调整，缺失因子时价格保持NaN
-            mask = merged[factor_column].notna()
-            if mask.any():
-                merged.loc[mask, col] = (
-                    pd.to_numeric(merged.loc[mask, col], errors='coerce') *
-                    merged.loc[mask, factor_column]
-                )
+            merged[col] = pd.to_numeric(merged[col], errors='coerce')
+
+    # 对有复权因子的行进行调整
+    mask_has_factor = merged[factor_column].notna()
+    for col in adjustable_columns:
+        if col in merged.columns:
+            merged.loc[mask_has_factor, col] = (
+                merged.loc[mask_has_factor, col] * merged.loc[mask_has_factor, factor_column]
+            )
+
+    # 对缺失复权因子的行，将可调整的价格字段设为NaN
+    mask_no_factor = merged[factor_column].isna()
+    for col in adjustable_columns:
+        if col in merged.columns:
+            merged.loc[mask_no_factor, col] = np.nan
 
     merged.drop(columns=[factor_column, 'trade_date'], inplace=True, errors='ignore')
     return merged
