@@ -5,6 +5,7 @@ ETF日线交易数据API
 # 库
 import datetime as dt
 import pandas as pd
+import numpy as np
 from typing import List, Literal
 
 # 常量
@@ -42,6 +43,7 @@ def get_etf_daily_trade_data(
         - end_date: str | dt.date 结束日期
         - columns: List[COLUMNS_LITERAL] | 'all' 列名，'all'表示所有列
         - adjustment_factor: Literal['none', 'pre', 'post'] 复权因子，当前仅支持 'none' 与 'post'
+          复权因子缺失时返回NaN（不再默认填充1.0）
 
     - 返回
         - pandas.DataFrame: ETF日线交易数据
@@ -122,11 +124,18 @@ def get_etf_daily_trade_data(
     )
     merged[factor_column] = pd.to_numeric(
         merged[factor_column], errors='coerce'
-    ).fillna(1.0)
+    )
+    # 不再默认填充1.0，缺失的复权因子保持为NaN，让用户知晓哪些数据未复权
 
     for col in ADJUSTABLE_COLUMNS:
         if col in merged.columns:
-            merged[col] = pd.to_numeric(merged[col], errors='coerce') * merged[factor_column]
+            # 只对存在复权因子的行进行调整，缺失因子时价格保持NaN
+            mask = merged[factor_column].notna()
+            if mask.any():
+                merged.loc[mask, col] = (
+                    pd.to_numeric(merged.loc[mask, col], errors='coerce') *
+                    merged.loc[mask, factor_column]
+                )
 
     merged.drop(columns=[factor_column], inplace=True)
     df = merged

@@ -7,6 +7,7 @@ ETF分钟线数据API
 # 库
 import datetime as dt
 import pandas as pd
+import numpy as np
 import sqlite3
 from typing import List, Literal
 
@@ -72,7 +73,9 @@ def _apply_adjustment(
     end_date: dt.date,
     adjustable_columns: tuple[str, ...],
 ) -> pd.DataFrame:
-    """应用复权因子（当前使用 post_adjustment_factor，因为数据库中实际存储的是后复权因子）。"""
+    """应用复权因子（当前使用 post_adjustment_factor，因为数据库中实际存储的是后复权因子）。
+    复权因子缺失时保持NaN，不再默认填充1.0。
+    """
     if df.empty:
         return df
 
@@ -98,11 +101,18 @@ def _apply_adjustment(
     )
     merged[factor_column] = pd.to_numeric(
         merged[factor_column], errors='coerce'
-    ).fillna(1.0)
+    )
+    # 不再默认填充1.0，缺失的复权因子保持为NaN
 
     for col in adjustable_columns:
         if col in merged.columns:
-            merged[col] = pd.to_numeric(merged[col], errors='coerce') * merged[factor_column]
+            # 只对存在复权因子的行进行调整，缺失因子时价格保持NaN
+            mask = merged[factor_column].notna()
+            if mask.any():
+                merged.loc[mask, col] = (
+                    pd.to_numeric(merged.loc[mask, col], errors='coerce') *
+                    merged.loc[mask, factor_column]
+                )
 
     merged.drop(columns=[factor_column, 'trade_date'], inplace=True, errors='ignore')
     return merged
@@ -125,6 +135,7 @@ def get_etf_minutely_trade_data(
         - columns: List[COLUMNS_LITERAL] | 'all' 列名，'all'表示所有列
         - adjustment_factor: Literal['none', 'pre', 'post'] 复权因子
           当前仅支持 'none' 与 'post'（复权因子表中实际存储的是 post_adjustment_factor）
+          复权因子缺失时返回NaN（不再默认填充1.0）
 
     - 返回
         - pandas.DataFrame: ETF分钟线数据
