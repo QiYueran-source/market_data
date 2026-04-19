@@ -87,7 +87,14 @@ def get_etf_daily_trade_data(
         raise ValueError("当前不支持前复权，请使用 adjustment_factor='post' 或 'none'")
 
     # 列参数
-    selected_columns = _daily_trade_data_query.select_columns(columns, ALL_COLUMNS)
+    # 重要修复：无论用户指定什么columns，内部查询时必须包含 code 和 trade_date（用于后续复权merge）
+    internal_columns = list(columns) if isinstance(columns, list) else (ALL_COLUMNS if columns == 'all' else list(columns))
+    if 'code' not in internal_columns:
+        internal_columns = ['code'] + internal_columns
+    if 'trade_date' not in internal_columns:
+        internal_columns = ['trade_date'] + internal_columns
+    
+    selected_columns = _daily_trade_data_query.select_columns(internal_columns, ALL_COLUMNS)
 
     placeholders = ','.join(['?' for _ in codes])
     query = f'''
@@ -102,6 +109,11 @@ def get_etf_daily_trade_data(
 
     # 无复权或空结果，直接返回
     if adjustment_factor == 'none' or df.empty:
+        # 如果用户指定了部分列，且不包含 code/trade_date，则在返回前去掉我们额外加的列
+        if columns != 'all' and isinstance(columns, list):
+            final_cols = [c for c in columns if c in df.columns]
+            if final_cols:
+                return df[final_cols]
         return df
 
     factor_column = 'post_adjustment_factor'
@@ -163,23 +175,30 @@ def agg_daily_price_to_weekly(
     - 参数
         - codes: str | List[str] ETF代码
         - start_date, end_date: 日期范围
-        - columns: 需要保留的列
+        - columns: 需要保留的列（内部会自动补充必要字段进行聚合，最后再筛选）
         - adjustment_factor: 是否使用复权数据（推荐使用 'post'）
     
     - 返回
-        - pandas.DataFrame: 周度数据，索引为每周最后一个交易日
+        - pandas.DataFrame: 周度数据
             - trade_date: 周结束日期（每周最后一个交易日）
             - code
             - open, high, low, close (周OHLC)
             - volume, amount (周总成交量/金额)
-            - 其他列：最后值
+            - 其他列：最后一天的值
     '''
-    # 1. 获取日线数据（使用复权）
+    # 重要修复：聚合需要 OHLCV 字段，不能被用户 columns 限制
+    required_for_agg = {'trade_date', 'code', 'open', 'high', 'low', 'close', 'volume', 'amount'}
+    if columns != 'all':
+        internal_columns = list(set(columns) | required_for_agg)
+    else:
+        internal_columns = 'all'
+
+    # 1. 获取日线数据（使用复权），内部会强制包含 code 和 trade_date
     df = get_etf_daily_trade_data(
         codes=codes,
         start_date=start_date,
         end_date=end_date,
-        columns=columns,
+        columns=internal_columns,
         adjustment_factor=adjustment_factor
     )
     
@@ -194,7 +213,7 @@ def agg_daily_price_to_weekly(
     df['week'] = df['trade_date'].dt.to_period('W').apply(lambda x: x.end_time)
     df['week'] = pd.to_datetime(df['week'].dt.date)  # 转为date
     
-    # 3. 分组聚合
+    # 3. 分组聚合 - 修复：使用固定的必要字段进行聚合
     agg_dict = {
         'open': 'first',
         'high': 'max',
@@ -204,8 +223,9 @@ def agg_daily_price_to_weekly(
         'amount': 'sum',
     }
     
-    # 对其他字段使用最后一天的值
-    other_cols = [col for col in df.columns if col not in ['trade_date', 'code', 'week', 'open', 'high', 'low', 'close', 'volume', 'amount']]
+    # 对其他字段使用最后一交易日的值
+    other_cols = [col for col in df.columns 
+                  if col not in ['trade_date', 'code', 'week', 'open', 'high', 'low', 'close', 'volume', 'amount']]
     for col in other_cols:
         agg_dict[col] = 'last'
     
@@ -215,8 +235,8 @@ def agg_daily_price_to_weekly(
     weekly = weekly.rename(columns={'week': 'trade_date'})
     weekly = weekly.sort_values(['code', 'trade_date']).reset_index(drop=True)
     
-    # 调整列顺序（尽量保持与日线一致）
-    if columns != 'all':
+    # 4. 如果用户指定了特定列，则进行最终筛选（保留 trade_date 和 code）
+    if columns != 'all' and isinstance(columns, list):
         desired_cols = ['trade_date', 'code'] + [col for col in columns if col in weekly.columns]
         weekly = weekly[desired_cols]
     

@@ -159,6 +159,7 @@ def get_etf_minutely_trade_data(
             - amplitude: float 振幅
             - turnover_rate: float 换手率
             - pe_ratio: float 市盈率
+          注意：表结构中不含code列，如需code请自行添加 df['code'] = code
     '''
     # 代码参数
     if not isinstance(code, str) or not code:
@@ -194,7 +195,22 @@ def get_etf_minutely_trade_data(
         )
 
     # 列参数
-    selected_columns = _minutely_trade_data_query.select_columns(columns, ALL_COLUMNS)
+    # 分钟线表结构特殊：每个code对应一张独立的表 (minutely_trade_data_{code})
+    # 表中不含code列，严格按照用户columns返回（不自动添加虚拟列）
+    if columns == 'all':
+        selected_columns = '*'
+    else:
+        if not columns:
+            raise ValueError('columns不能为空')
+        invalid_columns = [col for col in columns if col not in ALL_COLUMNS]
+        if invalid_columns:
+            raise ValueError(f'columns: {invalid_columns} 非法')
+        
+        # 内部强制包含 trade_datetime（复权逻辑需要）
+        internal_columns = list(columns)
+        if 'trade_datetime' not in internal_columns:
+            internal_columns = ['trade_datetime'] + internal_columns
+        selected_columns = ', '.join(internal_columns)
 
     # 查询数据
     table_name = f'minutely_trade_data_{code}'
@@ -209,9 +225,14 @@ def get_etf_minutely_trade_data(
 
     # 无复权或空结果，直接返回
     if adjustment_factor == 'none' or df.empty:
+        # 不自动添加code列（保持与数据库表结构严格一致）
+        # 如果用户想要code，需要自行添加：df['code'] = code
+        if isinstance(columns, list) and 'trade_datetime' not in columns and 'trade_datetime' in df.columns:
+            df = df.drop(columns=['trade_datetime'])
         return df
 
     # 应用复权（当前使用 post_adjustment_factor）
+    # 注意：_apply_adjustment 中会根据 trade_datetime 生成 trade_date 用于和因子表关联
     df = _apply_adjustment(
         df=df,
         codes=[code],
