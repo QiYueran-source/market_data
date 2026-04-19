@@ -149,3 +149,75 @@ def get_etf_daily_trade_data(
     merged.drop(columns=[factor_column], inplace=True)
     df = merged
     return df
+
+def agg_daily_price_to_weekly(
+    codes: str | List[str],
+    start_date: str | dt.date = dt.date(2020, 1, 1),
+    end_date: str | dt.date | None = None,
+    columns: List[COLUMNS_LITERAL] | Literal['all'] = 'all',
+    adjustment_factor: Literal['none', 'pre', 'post'] = 'post'
+) -> pd.DataFrame:
+    '''
+    将ETF日线数据聚合为周度数据（每周最后一个交易日）
+    
+    - 参数
+        - codes: str | List[str] ETF代码
+        - start_date, end_date: 日期范围
+        - columns: 需要保留的列
+        - adjustment_factor: 是否使用复权数据（推荐使用 'post'）
+    
+    - 返回
+        - pandas.DataFrame: 周度数据，索引为每周最后一个交易日
+            - trade_date: 周结束日期（每周最后一个交易日）
+            - code
+            - open, high, low, close (周OHLC)
+            - volume, amount (周总成交量/金额)
+            - 其他列：最后值
+    '''
+    # 1. 获取日线数据（使用复权）
+    df = get_etf_daily_trade_data(
+        codes=codes,
+        start_date=start_date,
+        end_date=end_date,
+        columns=columns,
+        adjustment_factor=adjustment_factor
+    )
+    
+    if df.empty:
+        return df
+    
+    # 确保日期是datetime类型
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
+    df = df.sort_values(['code', 'trade_date'])
+    
+    # 2. 添加周标识（每周的最后一个交易日作为周标识）
+    df['week'] = df['trade_date'].dt.to_period('W').apply(lambda x: x.end_time)
+    df['week'] = pd.to_datetime(df['week'].dt.date)  # 转为date
+    
+    # 3. 分组聚合
+    agg_dict = {
+        'open': 'first',
+        'high': 'max',
+        'low': 'min',
+        'close': 'last',
+        'volume': 'sum',
+        'amount': 'sum',
+    }
+    
+    # 对其他字段使用最后一天的值
+    other_cols = [col for col in df.columns if col not in ['trade_date', 'code', 'week', 'open', 'high', 'low', 'close', 'volume', 'amount']]
+    for col in other_cols:
+        agg_dict[col] = 'last'
+    
+    weekly = df.groupby(['code', 'week']).agg(agg_dict).reset_index()
+    
+    # 重命名 week 为 trade_date（周结束日）
+    weekly = weekly.rename(columns={'week': 'trade_date'})
+    weekly = weekly.sort_values(['code', 'trade_date']).reset_index(drop=True)
+    
+    # 调整列顺序（尽量保持与日线一致）
+    if columns != 'all':
+        desired_cols = ['trade_date', 'code'] + [col for col in columns if col in weekly.columns]
+        weekly = weekly[desired_cols]
+    
+    return weekly
