@@ -3,6 +3,11 @@ ETF分钟线数据API
 - get_etf_table_list(): 获取有分钟线数据的ETF列表
 - get_etf_list(): 获取ETF列表
 - get_etf_minutely_trade_data(): 获取ETF分钟线数据（复权使用 post_adjustment_factor）
+
+支持ETF：
+- 51xxxx (上证)
+- 159xxx (深证)
+- 15xxxx (恒生指数ETF，如159920)
 '''
 # 库
 import datetime as dt
@@ -21,7 +26,7 @@ TABLE_NAME = 'etf_minutely_trade_data'
 
 # etf_minutely_trade_data.exchange 存大写市场码，与库中一致
 _ALLOWED_ETF_EXCHANGES = frozenset({'SH', 'SZ'})
-_ETF_CODE_START_WITH = frozenset({'51', '159'})
+_ETF_CODE_START_WITH = frozenset({'51', '159', '15'})
 
 # 列
 COLUMNS_LITERAL = Literal['trade_datetime', 'price', 'volume', 'amount', 'original_volume', 'yesterday_close_price', 'up_down', 'up_down_rate', 'amplitude', 'turnover_rate', 'pe_ratio']
