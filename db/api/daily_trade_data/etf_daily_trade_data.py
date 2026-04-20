@@ -1,6 +1,7 @@
 '''
 ETF日线交易数据API  
 - get_etf_daily_trade_data(): 获取ETF日线交易数据
+- agg_daily_trade_data(): 将日线聚合为指定频率数据（周、月、季、年或自定义天数）
 '''
 # 库
 import datetime as dt
@@ -162,29 +163,33 @@ def get_etf_daily_trade_data(
     df = merged
     return df
 
-def agg_daily_price_to_weekly(
+def agg_daily_trade_data(
     codes: str | List[str],
     start_date: str | dt.date = dt.date(2020, 1, 1),
     end_date: str | dt.date | None = None,
+    freq: Literal['weekly','monthly','quarterly','half_yearly','yearly'] | int = 'weekly',
     columns: List[COLUMNS_LITERAL] | Literal['all'] = 'all',
     adjustment_factor: Literal['none', 'pre', 'post'] = 'post'
 ) -> pd.DataFrame:
     '''
-    将ETF日线数据聚合为周度数据（每周最后一个交易日）
+    将ETF日线数据聚合为指定频率数据（支持周、月、季、半年、年，或自定义天数）
     
     - 参数
         - codes: str | List[str] ETF代码
         - start_date, end_date: 日期范围
-        - columns: 需要保留的列（内部会自动补充必要字段进行聚合，最后再筛选）
+        - freq: 聚合频率
+            - str: 'weekly', 'monthly', 'quarterly', 'half_yearly', 'yearly'
+            - int: 表示每N天聚合一次（如 5 表示每5天聚合）
+        - columns: 需要保留的列（内部会自动补充OHLCV等必要字段进行聚合，最后再筛选）
         - adjustment_factor: 是否使用复权数据（推荐使用 'post'）
     
     - 返回
-        - pandas.DataFrame: 周度数据
-            - trade_date: 周结束日期（每周最后一个交易日）
+        - pandas.DataFrame: 聚合后的数据
+            - trade_date: 周期结束日期
             - code
-            - open, high, low, close (周OHLC)
-            - volume, amount (周总成交量/金额)
-            - 其他列：最后一天的值
+            - open, high, low, close (周期OHLC)
+            - volume, amount (周期总和)
+            - 其他列：周期内最后一个交易日的值
     '''
     # 重要修复：聚合需要 OHLCV 字段，不能被用户 columns 限制
     required_for_agg = {'trade_date', 'code', 'open', 'high', 'low', 'close', 'volume', 'amount'}
@@ -209,11 +214,27 @@ def agg_daily_price_to_weekly(
     df['trade_date'] = pd.to_datetime(df['trade_date'])
     df = df.sort_values(['code', 'trade_date'])
     
-    # 2. 添加周标识（每周的最后一个交易日作为周标识）
-    df['week'] = df['trade_date'].dt.to_period('W').apply(lambda x: x.end_time)
-    df['week'] = pd.to_datetime(df['week'].dt.date)  # 转为date
+    # 2. 根据 freq 生成分组键
+    if isinstance(freq, int) and freq > 0:
+        # 自定义天数聚合：每 freq 天为一组
+        df['group'] = (df['trade_date'] - df['trade_date'].min()).dt.days // freq
+        group_key = 'group'
+        date_col = 'trade_date'
+    else:
+        # 标准频率聚合
+        freq_map = {
+            'weekly': 'W',
+            'monthly': 'M',
+            'quarterly': 'Q',
+            'half_yearly': '2Q',
+            'yearly': 'Y'
+        }
+        period_freq = freq_map.get(freq, 'W')
+        df['group'] = df['trade_date'].dt.to_period(period_freq)
+        group_key = 'group'
+        date_col = 'trade_date'
     
-    # 3. 分组聚合 - 修复：使用固定的必要字段进行聚合
+    # 3. 分组聚合
     agg_dict = {
         'open': 'first',
         'high': 'max',
@@ -223,21 +244,21 @@ def agg_daily_price_to_weekly(
         'amount': 'sum',
     }
     
-    # 对其他字段使用最后一交易日的值
+    # 对其他字段使用最后一个交易日的值
     other_cols = [col for col in df.columns 
-                  if col not in ['trade_date', 'code', 'week', 'open', 'high', 'low', 'close', 'volume', 'amount']]
+                  if col not in ['trade_date', 'code', 'group', 'open', 'high', 'low', 'close', 'volume', 'amount']]
     for col in other_cols:
         agg_dict[col] = 'last'
     
-    weekly = df.groupby(['code', 'week']).agg(agg_dict).reset_index()
+    aggregated = df.groupby(['code', group_key]).agg(agg_dict).reset_index()
     
-    # 重命名 week 为 trade_date（周结束日）
-    weekly = weekly.rename(columns={'week': 'trade_date'})
-    weekly = weekly.sort_values(['code', 'trade_date']).reset_index(drop=True)
+    # 4. 使用每个分组的最后一个交易日作为 trade_date
+    aggregated['trade_date'] = df.groupby(['code', group_key])['trade_date'].last().values
+    aggregated = aggregated.sort_values(['code', 'trade_date']).reset_index(drop=True)
     
-    # 4. 如果用户指定了特定列，则进行最终筛选（保留 trade_date 和 code）
+    # 5. 如果用户指定了特定列，则进行最终筛选
     if columns != 'all' and isinstance(columns, list):
-        desired_cols = ['trade_date', 'code'] + [col for col in columns if col in weekly.columns]
-        weekly = weekly[desired_cols]
+        desired_cols = ['trade_date', 'code'] + [col for col in columns if col in aggregated.columns]
+        aggregated = aggregated[desired_cols]
     
-    return weekly
+    return aggregated
