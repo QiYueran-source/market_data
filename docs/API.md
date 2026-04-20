@@ -58,8 +58,87 @@
 | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
 | ETF 复权因子数据 | pro.fund_adj | ts_code trade_date start_date end_date offset limit | ts_code:000001.SZ, trade_date:20260414, start_date:20260414, end_date:20260414, offset:0, limit:1000 | pandas.DataFrame({ts_code: str, trade_date: str, adj_factor: float}) | 裸Exception | 约 **100 次 / 1s**（滑动窗口，与 `providers/provider_utils/api_limiter.py` → **`TUSHARE_LIMITER`** 一致） | 下午16:00后保险 |  
 
-### 股票日线数据  
 
-| 接口 | 函数 | 请求方式 | 请求参数 | 正确返回结果示例 | 异常结果示例 | 限流 | 更新时间 |
-| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| 股票日线数据 | `ts.pro_api().daily()` | ts_code='000001.SZ', start_date='20180701', end_date='20180718' | ts_code:000001.SZ, start_date:20180701, end_date:20180718 | pandas.DataFrame | 裸Exception | 约 **100 次 / 1s**（滑动窗口，与 `providers/provider_utils/api_limiter.py` → **`TUSHARE_LIMITER`** 一致） | 下午16:00后保险 |  
+### 通用行情接口 `pro_bar`（支持股票/指数/期货/基金/期权/可转债，推荐使用）
+
+| 接口 | 函数 | 请求参数（主要） | 正确返回结果示例 | 异常结果示例 | 限流 | 更新时间 |
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| 通用行情 | `ts.pro_bar()` | `ts_code, start_date, end_date, asset='E', adj=None, freq='D', ma=[5,10], factors=['tor','vr'], adjfactor=False` | `pandas.DataFrame` （OHLCV + 可选均线/因子/复权因子列） | 裸Exception | 约 **100 次 / 1s**（与 TUSHARE_LIMITER 一致） | 下午16:00后保险 |  
+
+#### 参数说明
+
+| 名称 | 类型 | 必选 | 说明 |
+|------|------|------|------|
+| ts_code | str | Y | 证券代码，**不支持多值输入**，多值输入结果会有重复记录 |
+| start_date | str | N | 开始日期<br>日线格式：`YYYYMMDD`<br>分钟线格式：`2019-09-01 09:00:00` |
+| end_date | str | N | 结束日期（日线格式：`YYYYMMDD`） |
+| asset | str | Y | 资产类别：<br>`E` 股票（默认）<br>`I` 沪深指数<br>`C` 数字货币<br>`FT` 期货<br>`FD` 基金<br>`O` 期权<br>`CB` 可转债（v1.2.39+） |
+| adj | str | N | 复权类型（**仅针对股票**）：<br>`None` 未复权（默认）<br>`qfq` 前复权<br>`hfq` 后复权<br>目前只支持日线复权，根据设定的 `end_date` 动态复权，采用**分红再投模式** |
+| freq | str | Y | 数据频度：<br>分钟：`1min / 5min / 15min / 30min / 60min`（600积分试用，正式权限参考权限列表）<br>日：`D`（默认）<br>周：`W`<br>月：`M` |
+| ma | list | N | 均线，支持任意合理 int 数值<br>注意：均线动态计算，日期跨度需超过该均线周期<br>**仅支持单个 ts_code**<br>例：`ma_5` 表示5日均价，`ma_v_5` 表示5日均量 |
+| factors | list | N | 股票因子（`asset='E'` 有效）：<br>`tor` 换手率<br>`vr` 量比 |
+| adjfactor | str | N | 是否返回复权因子列<br>`True` 返回，`False` 不返回（默认）<br>v1.2.33+ 生效 |
+
+#### 调用示例
+
+```python
+import tushare as ts
+
+# 获取股票前复权日线
+df = ts.pro_bar(
+    ts_code='000001.SZ',
+    adj='qfq',
+    start_date='20180101',
+    end_date='20181011'
+)
+
+# 获取股票1分钟线
+df_min = ts.pro_bar(
+    ts_code='000001.SZ',
+    freq='1min',
+    start_date='2019-09-01 09:00:00',
+    end_date='2019-09-01 15:00:00'
+)
+
+# 指数日线
+df_idx = ts.pro_bar(ts_code='000300.SH', asset='I', start_date='20180101', end_date='20181011')
+
+# ETF（基金）日线
+df_fd = ts.pro_bar(ts_code='510300.SH', asset='FD', start_date='20180101', end_date='20181011')
+
+# 返回复权因子 + 均线
+df = ts.pro_bar(
+    ts_code='000001.SZ',
+    adj='hfq',
+    adjfactor=True,
+    ma=[5, 20],
+    factors=['tor', 'vr'],
+    start_date='20230101',
+    end_date='20231231'
+)
+```
+
+#### 返回字段说明
+
+| 字段 | 说明 |
+|------|------|
+| ts_code | 证券代码（带交易所后缀） |
+| trade_date | 交易日期 |
+| open / high / low / close | 开 / 高 / 低 / 收 |
+| pre_close | 昨收 |
+| change | 涨跌额 |
+| pct_chg | 涨跌幅（%） |
+| vol | 成交量（手） |
+| amount | 成交额（千元） |
+| ma_{N} | N日均价（指定 `ma` 参数时） |
+| ma_v_{N} | N日均量（指定 `ma` 参数时） |
+| turnover_rate | 换手率（`factors` 含 `tor` 时） |
+| volume_ratio | 量比（`factors` 含 `vr` 时） |
+| adj_factor | 复权因子（`adjfactor=True` 时） |
+
+#### 使用注意
+
+- **分红再投模式**：tushare 的复权采用分红再投，与部分券商前复权略有差异
+- **动态复权**：复权基于 `end_date`，改变 `end_date` 会导致历史价格变化
+- **均线限制**：`ma` 参数仅支持单个 `ts_code`，不支持批量
+- **分钟数据权限**：分钟线需要 600 积分以上账号（600积分可试用2次）

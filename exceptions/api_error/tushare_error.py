@@ -18,3 +18,5 @@ class TushareETFAdjustmentFactorError(TushareError):
 
 class TushareETFAdjustmentDataFormatError(TushareETFAdjustmentFactorError):
     '''TuShare ETF复权因子数据格式错误'''
+
+# ---------------- 股票日线数据 + 复权因子 ----------------- 
