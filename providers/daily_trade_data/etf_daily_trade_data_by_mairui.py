@@ -56,8 +56,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Tuple, Any, Literal
 from collections import Counter
-from dotenv import load_dotenv
-load_dotenv()
+
 
 # 工具
 from providers.provider_utils import limit, retry
@@ -66,7 +65,11 @@ from schema.daily_trade_data import ETF_DAILY_TRADE_DATA_SCHEMA
 from db.api.security_info import etf_info
 
 # 环境变量
+from dotenv import load_dotenv
+load_dotenv()
 MAIRUI_TOKEN = os.getenv('MAIRUI_TOKEN')
+
+# URL  
 MAIRUI_DAILY_TRADE_DATA_URL = 'https://api.mairuiapi.com/fd/real/time'
 
 # 规定字段
@@ -93,8 +96,8 @@ _FALLBACK_KEY_VALIDATE = 'VALIDATE_FAIL_USE_FALLBACK_ZERO' # 校验失败，用�
 LATEST_ETF_LIST = etf_info.get_latest_etf_list()
 
 # 日志
-import logging
-logger = logging.getLogger('daily_trade_data.etf_daily_trade_data_by_mairui')
+from utils.logs import get_logger
+logger = get_logger('etf_daily_trade_data_by_mairui')
 
 # 异常
 from exceptions.api_error.base_error import NotFoundError, BadRequestError

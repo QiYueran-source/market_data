@@ -156,6 +156,14 @@ Exception
 
 **语义**：`is_open == -1` 表示「API 与本地兜底均未得到可信值，或出口前校验仍失败」，下游需单独处理。
 
+## 股票日线（stock_daily_trade_data，TuShare）异常与降级
+
+实现文件：`providers/daily_trade_data/stock_daily_trade_data_by_tushare.py`。
+
+- **`fetch()`**：可能抛出 `TushareStockNotInListError`、`TushareStockExchangeNotFoundError`、`TushareTokenError`、`TushareStockDailyEmptyError`、`TushareStockDailyFormatError`、`TushareStockDailyProBarError` 等（见 `exceptions/api_error/tushare_error.py`）。
+- **`fetch_and_clean()`**：对请求区间 **`[start_date, end_date]`**（Job 中即 **`bootstrap_start` ~ `end_date`**），先将 TuShare 拉取起点设为 **`start_date` 的前一交易日**（日历中无前一交易日则不回退），计算衍生字段后再**裁剪回**该区间。以下情况使用 **`code + end_date + 数值全 0`** 单行兜底，并记入 **`FETCH_FAIL_USE_FALLBACK_ZERO`** 或 **`VALIDATE_FAIL_USE_FALLBACK_ZERO`**：**拉取/清洗失败**（**含** `TushareTokenError`、`TushareQuotaExhaustedError`）、**`validate` 失败**。**`TushareStockNotInListError`**：跳过该 code，不写兜底行。
+- **`provide()`**：分批并发调用 `fetch_and_clean`，聚合 `fallback_records` 与拉取次数供 Job 写入 **`JobInfo`**。
+
 ## ETF复权因子（adjustment_factor）异常与降级
 
 实现文件：`providers/adjustment_factor/etf_adjustment_factor_by_tushare.py`。
@@ -237,6 +245,7 @@ Exception
 | `providers/security_info/eft_info_by_mairui.py` | 麦蕊 ETF 列表 `fetch` / `fetch_and_clean` / `provide` |
 | `providers/security_info/stock_info_by_mairui.py` | 麦蕊沪深股票列表 `fetch` / `fetch_and_clean` / `provide`（含原表兜底与校验兜底） |
 | `providers/daily_trade_data/etf_daily_trade_data_by_mairui.py` | 麦蕊 ETF 日线（当前与实时接口同源字段）；`fetch_and_clean` / **`provide(codes)`** |
+| `providers/daily_trade_data/stock_daily_trade_data_by_tushare.py` | TuShare 股票日线：`fetch` / `fetch_and_clean` / **`provide`**；Token/额度等亦走兜底（见上节「股票日线」） |
 | `providers/minutely_trade_data/etf_minutely_trade_data_by_mairui.py` | 麦蕊 ETF 分钟；`fetch_and_clean` / **`provide(codes)`** |
 | `exceptions/api_error/mairui_error.py` | **`MairuiError`** 及麦蕊相关子类（含 ETF 列表、**股票列表** `StockInfo*` 等） |
 | `db/api/security_info/etf_info.py` | **`etf_info`** 表查询与 **`get_latest_update_date`** 等 |

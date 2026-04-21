@@ -1,8 +1,9 @@
 '''
 提供akshare_trade_calendar表的接口   
-- get_trade_calendar() 获取一个范围内的交易日历  
-- get_trade_calendar_by_date() 获取一个日期的交易日历数据  
-- is_trade_date() 判断一个日期是不是交易日
+- get_trade_calendar() 获取一个范围内的交易日历    
+- get_trade_calendar_by_date() 获取一个日期的交易日历数据    
+- is_trade_date() 判断一个日期是不是交易日  
+- get_trade_date_list() 仅返回交易日  
 '''
 # 库
 import datetime as dt
@@ -72,3 +73,15 @@ def is_trade_date(
     if v is None:
         return False
     return v == 1
+
+def get_trade_date_list(
+    start_date: dt.date | dt.datetime | str | pd.Timestamp = '1990-01-01',
+    end_date: dt.date | dt.datetime | str | pd.Timestamp = '2024-12-31',
+) -> list[dt.date]:
+    '''
+    获取一个范围内的交易日（仅 is_open == 1）。
+    '''
+    df = get_trade_calendar(start_date, end_date)
+    if df.empty or 'calendar_date' not in df.columns or 'is_open' not in df.columns:
+        return []
+    open_rows = df.loc[df['is_open'] == 1, 'calendar_date']

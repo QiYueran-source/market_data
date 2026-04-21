@@ -31,10 +31,11 @@
 | `jobs/security_info/update_stock_info.py` | 更新 `stock_info` 表（麦蕊股票列表）；**`run()`** 可按间隔与交易日历条件跳过，返回 **`JobInfo`** |
 | `update_trade_calendar.py` | 交易日历域：注册并顺序执行 job；汇总 **`JobInfo`** 后发邮件 |
 | `update_security_info.py` | 证券信息域：注册并顺序执行 **`update_etf_info`**、**`update_stock_info`** 等；汇总 **`JobInfo`** 后发邮件 |
-| `update_daily_data.py` | 日线数据域：顺序执行 **`update_etf_daily_trade_data`**、**`update_adjustment_factor`**；汇总 **`JobInfo`** 后发邮件 |
+| `update_daily_data.py` | 日线数据域：顺序执行 **`update_etf_daily_trade_data`**、**`update_stock_daily_trade_data`**（TuShare 股票日线）、**`update_adjustment_factor`**；汇总 **`JobInfo`** 后发邮件 |
 | `update_minutely_trade_data_morning.py` | 分钟数据（早盘）：注册并执行对应 job；汇总邮件（实现与日线域入口类似） |
 | `update_minutely_trade_data_afternoon.py` | 分钟数据（午盘）：同上 |
 | `jobs/daily_trade_data/update_etf_daily_trade_data.py` | 更新 **`daily_trade_data.db`** → **`etf_daily_trade_data`**；按批调用 Provider、`Buffer` 攒批写库；**`run()`** 返回 **`JobInfo`** |
+| `jobs/daily_trade_data/update_stock_daily_trade_data.py` | 更新 **`daily_trade_data.db`** → **`stock_daily_trade_data`**（TuShare `pro_bar`）；按批 **`provide`**、`Buffer` 写库；Provider 失败（含 Token/额度等）时按 ETF 风格兜底并计入 **`fallback_records`**；**`run()`** 返回 **`JobInfo`** |
 | `jobs/adjustment_factor/update_adjustment_factor.py` | 更新 **`adjustment_factor.db`** → **`etf_adjustment_factor`**；**`run()`** 返回 **`JobInfo`** |
 | `jobs/minutely_trade_data/update_minutely_trade_data_morning.py` | 分钟数据（早盘时段循环）；**`run()`** 返回 **`JobInfo`** |
 | `jobs/minutely_trade_data/update_minutely_trade_data_afternoon.py` | 分钟数据（午盘时段循环）；**`run()`** 返回 **`JobInfo`** |

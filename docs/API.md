@@ -65,6 +65,8 @@
 | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
 | 通用行情 | `ts.pro_bar()` | `ts_code, start_date, end_date, asset='E', adj=None, freq='D', ma=[5,10], factors=['tor','vr'], adjfactor=False` | `pandas.DataFrame` （OHLCV + 可选均线/因子/复权因子列） | 裸Exception | 约 **100 次 / 1s**（与 TUSHARE_LIMITER 一致） | 下午16:00后保险 |  
 
+项目中的股票日线 Provider（`providers/daily_trade_data/stock_daily_trade_data_by_tushare.py`）基于该接口，按 `asset='E'`, `freq='D'`, `adj=None` 拉取并统一转换口径：`vol(手)`→`volume(股)`、`amount(千元)`→`amount(元)`；对请求区间 `[bootstrap_start, end_date]` 会前推一个交易日拉取再裁剪回该区间（详见 **`docs/Providers.md`**）。当拉取失败或校验失败时，按 ETF 风格写入单行兜底（**`code + end_date + 数值字段全 0`**）并记录 `fallback_records`。
+
 #### 参数说明
 
 | 名称 | 类型 | 必选 | 说明 |

@@ -20,6 +20,8 @@
 
 麦蕊相关 Provider（如 **`providers/security_info/eft_info_by_mairui.py`**、**`providers/security_info/stock_info_by_mairui.py`**、**`providers/daily_trade_data/etf_daily_trade_data_by_mairui.py`**、**`providers/minutely_trade_data/etf_minutely_trade_data_by_mairui.py`**）共用 **`limit('mairui')`**，合计受上表 **mairui** 一行约束；日线 Job 若分批拉全市场，需注意总请求速率。
 
+TuShare 股票日线 Provider（**`providers/daily_trade_data/stock_daily_trade_data_by_tushare.py`**）使用 **`limit('tushare')`**，与复权因子等 TuShare 任务共用 **tushare** 一行限流；结构与 ETF 日线 Provider 对齐为 **`fetch` → `fetch_and_clean` → `provide`**。对请求区间 **`[bootstrap_start, end_date]`**，内部会将 TuShare 拉取起点前移到 **`bootstrap_start` 的前一交易日**（交易日历中不存在前一日时则不回退），用于计算昨收、涨跌幅等；**返回结果仍只保留该区间内的行**。抓取失败或校验失败时按 **`code + end_date（区间结束日）+ 全零数值列`** 单行兜底，并在 **`fallback_records`** 记录原因（含 **`TushareTokenError` / `TushareQuotaExhaustedError`** 亦走兜底，便于从统计中排查）。
+
 
 ### 重试器  
 用于捕获特定异常，并进行重试。  

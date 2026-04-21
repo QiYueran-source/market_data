@@ -61,7 +61,13 @@ class TableSchema:
     - primary_key: List[str]，主键列表，用于unique调用
     - primary_key_required: 主键是否必须
     '''
-    database_name: Literal['trade_calendar.db','security_info.db','minutely_trade_data.db'] 
+    database_name: Literal[
+        'trade_calendar.db',
+        'security_info.db',
+        'minutely_trade_data.db',
+        'daily_trade_data.db',
+        'adjustment_factor.db',
+    ] 
     table_name: str
     schema: List[Field]
     primary_key_required: bool = True

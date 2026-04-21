@@ -77,28 +77,27 @@ Provider（mairui）容错策略：仅 `o/h/l/p` 为必填字段；其余字段�
 #### stock_daily_trade_data表  
 
 与 **`etf_daily_trade_data`** **列名与语义对齐**：同一套 OHLC、成交量（股）、成交额（元）、昨收、涨跌额/率、振幅等字段，便于共用日线查询与后续聚合逻辑。  
-**数据源与口径**：计划由 TuShare 等拉取**不复权**（除权除息后的交易所披露口径）日线；`trade_date` 为 **`yyyy-mm-dd`**。  
+**数据源与口径**：由 TuShare `ts.pro_bar` 拉取**不复权**日线；`trade_date` 为 **`yyyy-mm-dd`**。  
 **单位约定（与 ETF 表一致）**：`volume` 为**股**（若上游为「手」，入库前乘以 100）；`amount` 为**元**（若上游为「千元」，入库前乘以 1000）；价格为**元**。  
-**昨收与衍生列**：`yesterday_close_price` 优先与上一交易日 `close` 一致（可用按 `code` 分组后对 `close` 做 `shift(1)` 得到，与 TuShare `pre_close` 在除权日等处可能略有差异，以项目 Provider 文档为准）；在昨收有效时，`up_down` / `up_down_rate` / `amplitude` 与 ETF 含义相同（`up_down_rate`、`amplitude` 为**小数**，如 `0.01` 表示 1%，与麦蕊 ETF Provider 中「百分比除以 100」的存法一致）。  
-**可空列**：下列字段若上游不提供或未接入辅助表，则**不写或写 NULL**，**不使用 `0.0` 冒充缺失**（与复权因子等 API 的 NaN 策略一致）。
+**兜底策略（对齐 ETF）**：Provider 在抓取失败或校验失败时，按 **`code + 请求区间 end_date + 数值字段 0`** 生成单行兜底数据，并在 `fallback_records` 记录原因（`FETCH_FAIL_USE_FALLBACK_ZERO` / `VALIDATE_FAIL_USE_FALLBACK_ZERO`）；**`TushareTokenError` / `TushareQuotaExhaustedError`** 亦计入同一兜底路径。正常拉取时，内部会将 TuShare 起点前推到 **`bootstrap_start` 的前一交易日**（若不存在则不回退）再裁剪回 **`[bootstrap_start, end_date]`**，以便计算昨收与涨跌幅等字段。
 
 | 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
 | ------ | ---- | ---- | ---- | ------ |
 | code | TEXT | 股票代码（无市场后缀，如 600000），与 **`stock_info.code`** 一致 | True | 888888 |
-| trade_date | TEXT | 交易日期，格式为 yyyy-mm-dd | True | - |
-| open | REAL | 开盘价(元)，不复权 | False | - |
-| high | REAL | 最高价(元)，不复权 | False | - |
-| low | REAL | 最低价(元)，不复权 | False | - |
-| close | REAL | 收盘价(元)，不复权 | False | - |
-| volume | INTEGER | 成交量(股)，与 ETF 表口径一致 | False | - |
-| amount | REAL | 成交额(元)，与 ETF 表口径一致；无可靠来源时为 NULL | False | NULL |
-| original_volume | INTEGER | 原始成交量(股)；股票侧暂无独立口径时为 NULL | False | NULL |
-| yesterday_close_price | REAL | 昨收价(元)；首条上市日或无法确定时为 NULL | False | NULL |
-| up_down | REAL | 相对昨收涨跌额(元)；昨收缺失时为 NULL | False | NULL |
-| up_down_rate | REAL | 相对昨收涨跌率（小数，非百分数）；昨收缺失或为 0 无法除时为 NULL | False | NULL |
-| amplitude | REAL | 振幅（小数）；通常为 (high-low)/昨收，昨收缺失或为 0 时为 NULL | False | NULL |
-| turnover_rate | REAL | 换手率（小数）；需股本等辅助数据，未接入时为 NULL | False | NULL |
-| pe_ratio | REAL | 市盈率；日线行情不包含时为 NULL | False | NULL |
+| trade_date | TEXT | 交易日期，格式为 yyyy-mm-dd | True | 请求区间的 **end_date** |
+| open | REAL | 开盘价(元)，不复权 | False | 0.0 |
+| high | REAL | 最高价(元)，不复权 | False | 0.0 |
+| low | REAL | 最低价(元)，不复权 | False | 0.0 |
+| close | REAL | 收盘价(元)，不复权 | False | 0.0 |
+| volume | INTEGER | 成交量(股)，与 ETF 表口径一致 | False | 0 |
+| amount | REAL | 成交额(元)，与 ETF 表口径一致 | False | 0.0 |
+| original_volume | INTEGER | 原始成交量(股) | False | 0 |
+| yesterday_close_price | REAL | 昨收价(元) | False | 0.0 |
+| up_down | REAL | 相对昨收涨跌额(元) | False | 0.0 |
+| up_down_rate | REAL | 相对昨收涨跌率（小数，非百分数） | False | 0.0 |
+| amplitude | REAL | 振幅（小数） | False | 0.0 |
+| turnover_rate | REAL | 换手率（小数） | False | 0.0 |
+| pe_ratio | REAL | 市盈率 | False | 0.0 |
 
 ### minutely_trade_data库
 #### etf_minutely_trade_data_<code>表 

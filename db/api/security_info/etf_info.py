@@ -30,7 +30,6 @@ FALLBACK_ETF_CODE = '888888'
 def _fb() -> tuple[str]:
     return (FALLBACK_ETF_CODE,)
 
-
 def get_all_etf_info() -> pd.DataFrame:
     '''
     获取所有ETF信息
@@ -45,19 +44,24 @@ def get_all_etf_info() -> pd.DataFrame:
     q = f'SELECT {_SELECT} FROM {TABLE_NAME} WHERE code != ?'
     return _security_info_query.read_sql(q, _fb())
 
-
-def get_etf_list() -> List[str]:
+def get_etf_list(with_suffix: bool = False) -> List[str]:
     '''
     获取ETF列表  
 
+    - 参数
+        - with_suffix: bool 是否返回带交易所后缀代码（如 513100.SH）
     - 返回
         - List[str]: ETF列表
-            - str: ETF代码
+            - str: ETF代码（默认无后缀；with_suffix=True 时为 code.exchange）
     '''
-    q = f'SELECT code FROM {TABLE_NAME} WHERE code != ?'
+    q = f'SELECT code, exchange FROM {TABLE_NAME} WHERE code != ?'
     df = _security_info_query.read_sql(q, _fb())
-    return df['code'].tolist()
-
+    if not with_suffix:
+        return df['code'].astype(str).tolist()
+    return [
+        f"{str(code)}.{str(exchange).upper()}"
+        for code, exchange in zip(df['code'], df['exchange'])
+    ]
 
 def get_latest_etf_info() -> pd.DataFrame:
     '''
@@ -81,24 +85,30 @@ def get_latest_etf_info() -> pd.DataFrame:
     '''
     return _security_info_query.read_sql(q, _fb())
 
-
-def get_latest_etf_list() -> List[str]:
+def get_latest_etf_list(with_suffix: bool = False) -> List[str]:
     '''
     获取最新ETF列表
 
+    - 参数
+        - with_suffix: bool 是否返回带交易所后缀代码（如 513100.SH）
     - 返回
         - List[str]: 最新ETF列表
-            - str: ETF代码
+            - str: ETF代码（默认无后缀；with_suffix=True 时为 code.exchange）
     '''
     q = f'''
-    SELECT code FROM {TABLE_NAME}
+    SELECT code, exchange FROM {TABLE_NAME}
     WHERE last_update_date = (
         SELECT MAX(last_update_date) FROM {TABLE_NAME}
     )
     AND code != ?
     '''
     df = _security_info_query.read_sql(q, _fb())
-    return df['code'].tolist()
+    if not with_suffix:
+        return df['code'].astype(str).tolist()
+    return [
+        f"{str(code)}.{str(exchange).upper()}"
+        for code, exchange in zip(df['code'], df['exchange'])
+    ]
 
 
 def get_etf_info_by_code(code: str | Sequence[str]) -> pd.DataFrame:
