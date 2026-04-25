@@ -1,5 +1,5 @@
 '''
-更新ETF复权因子
+更新股票复权因子
 
 更新时间：每天收盘后 17:00 
 限流：未知，用tushare通用限流器即可，单次限2000条  
@@ -13,15 +13,15 @@ from models.job_info import JobInfo
 from db.api.trade_calendar import stock_api_trade_calendar
 
 # 表结构
-from schema.adjustment_factor import ETF_ADJUSTMENT_FACTOR_SCHEMA
+from schema.adjustment_factor import STOCK_ADJUSTMENT_FACTOR_SCHEMA
 
 # 提供者
-from providers.adjustment_factor.etf_adjustment_factor_by_tushare import provide
+from providers.adjustment_factor.stock_adjustment_factor_by_tushare import provide
 
 # 缓存
 from storage.buffer import Buffer
-etf_adjustment_factor_buffer = Buffer(
-    schema = ETF_ADJUSTMENT_FACTOR_SCHEMA,
+stock_adjustment_factor_buffer = Buffer(
+    schema = STOCK_ADJUSTMENT_FACTOR_SCHEMA,
     buffer_size = 1000,
 )
 
@@ -92,7 +92,7 @@ def run()->JobInfo:
     
     # 更新缓存
     try:
-        flushed = etf_adjustment_factor_buffer.append(df)
+        flushed = stock_adjustment_factor_buffer.append(df)
         if flushed:
             write_times += 1
     except ValidError as e:
@@ -122,7 +122,7 @@ def run()->JobInfo:
         
     # 最后flush缓存
     try:
-        flushed = etf_adjustment_factor_buffer.flush()
+        flushed = stock_adjustment_factor_buffer.flush()
         if flushed:
             write_times += 1
     except BufferWriteError as e:
@@ -158,7 +158,7 @@ def run()->JobInfo:
         total_fetch_times = total_fetch_times,
         fallback_records = dict(total_fallback_records),
         additional_info = {
-            '消息': '更新ETF复权因子成功'
+            '消息': '更新股票复权因子成功'
         }
     )
     return info

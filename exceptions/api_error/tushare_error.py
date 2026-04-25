@@ -47,4 +47,14 @@ class TushareStockNotInListError(TushareStockDailyError):
     '''股票代码不在当前 stock_info 最新列表中'''
 
 
-# ---------------- 股票复权因子等（预留） -----------------
+# ---------------- 股票复权因子 -----------------
+class TushareStockAdjustmentFactorError(TushareError):
+    '''TuShare 股票复权因子链路错误基类'''
+
+
+class TushareStockAdjustmentDataFormatError(TushareStockAdjustmentFactorError):
+    '''TuShare 股票复权因子数据格式错误'''
+
+
+class TushareStockAdjustmentExchangeNotFoundError(TushareStockAdjustmentFactorError):
+    '''TuShare 股票复权因子场景下股票交易所未找到'''

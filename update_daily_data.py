@@ -1,5 +1,5 @@
 '''
-更新每日交易数据和ETF复权因子
+更新每日交易数据和复权因子
 '''
 # 添加根目录
 from utils import add_root_path
@@ -20,12 +20,14 @@ logger = get_logger('update_daily_data_job')
 from jobs.daily_trade_data import update_etf_daily_trade_data
 from jobs.daily_trade_data import update_stock_daily_trade_data
 from jobs.adjustment_factor import update_etf_adjustment_factor
+from jobs.adjustment_factor import update_stock_adjustment_factor
 
 # 注册表
 JOBS_REGISTRY = {
     'update_etf_daily_trade_data': update_etf_daily_trade_data.run,
     'update_stock_daily_trade_data': update_stock_daily_trade_data.run,
     'update_etf_adjustment_factor': update_etf_adjustment_factor.run,
+    'update_stock_adjustment_factor': update_stock_adjustment_factor.run,
 }
 
 # 需要捕获的异常
