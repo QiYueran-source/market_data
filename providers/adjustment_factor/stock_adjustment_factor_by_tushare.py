@@ -142,7 +142,9 @@ def fetch(
         )
         df['code'] = df['code'].astype(str).str.extract(r'(\d+)')[0]
         df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d').dt.strftime('%Y-%m-%d')
-        df['adjustment_factor'] = pd.to_numeric(df['adjustment_factor'], errors='raise').astype('float64')
+        df['adjustment_factor'] = pd.to_numeric(
+            df['adjustment_factor'], errors='coerce'
+        ).fillna(0.0).astype('float64')
         df = df.drop_duplicates(subset=['code', 'trade_date'])
         df = df[df['code'].isin(STOCK_LIST)]
     except Exception as e:
