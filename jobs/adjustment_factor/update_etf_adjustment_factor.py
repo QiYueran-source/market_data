@@ -27,7 +27,7 @@ etf_adjustment_factor_buffer = Buffer(
 
 # 日志
 from utils import get_logger
-logger = get_logger('update_adjustment_factor_job')
+logger = get_logger('update_etf_adjustment_factor_job')
 
 # 异常
 from exceptions.buffer_error import BufferWriteError
@@ -41,7 +41,7 @@ def run()->JobInfo:
     '''
     运行
     '''
-    job_name = 'update_adjustment_factor'
+    job_name = 'update_etf_adjustment_factor'
     total_fallback_records = Counter()
     total_fetch_times = 0
     success = True

@@ -3,7 +3,7 @@
 ## 约定
 
 - 异常类定义在 `exceptions/` 下，按领域分子模块（`schema_error`、`valid_error`、`api_error`、`buffer_error`、`email_error`）。
-- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，交易日历 **`fetch_and_clean()`** 在 **API 失败走兜底**、**兜底失败**、**`validate` 失败降级** 等路径使用 **`logger.exception`**；**`update_stock_api_trade_calendar.run()`**、**`update_etf_info.run()`**、**`update_stock_info.run()`**、**`update_etf_daily_trade_data.run()`**、**`update_adjustment_factor.run()`**、**`update_minutely_trade_data_morning.run()`** / **`update_minutely_trade_data_afternoon.run()`** 等在 **`ValidError` / `BufferWriteError` / 其它异常** 时使用 **`logger.exception`**。编排入口（**`update_trade_calendar.main`**、**`update_security_info.main`**、**`update_daily_data.main`**、**`update_minutely_trade_data_morning.main`**、**`update_minutely_trade_data_afternoon.main`** 等）在汇总通知失败时，对 **`EmailError`** 子类 **仅记录日志，不再次调用发信**（避免失败通知递归发邮件）。
+- **日志**：业务上避免对同一失败重复打同一条「错误结论」；可在不同层级打 **debug/info** 辅助信息。当前实现里，交易日历 **`fetch_and_clean()`** 在 **API 失败走兜底**、**兜底失败**、**`validate` 失败降级** 等路径使用 **`logger.exception`**；**`update_stock_api_trade_calendar.run()`**、**`update_etf_info.run()`**、**`update_stock_info.run()`**、**`update_etf_daily_trade_data.run()`**、**`update_etf_adjustment_factor.run()`**、**`update_minutely_trade_data_morning.run()`** / **`update_minutely_trade_data_afternoon.run()`** 等在 **`ValidError` / `BufferWriteError` / 其它异常** 时使用 **`logger.exception`**。编排入口（**`update_trade_calendar.main`**、**`update_security_info.main`**、**`update_daily_data.main`**、**`update_minutely_trade_data_morning.main`**、**`update_minutely_trade_data_afternoon.main`** 等）在汇总通知失败时，对 **`EmailError`** 子类 **仅记录日志，不再次调用发信**（避免失败通知递归发邮件）。
 - **文档与代码**：类名、继承关系以 `exceptions/**/*.py` 为准；本页表格中的「抛出位置」指向当前已实现调用链。
 
 ## 继承关系（Api 相关）
@@ -256,7 +256,7 @@ Exception
 | `jobs/security_info/update_etf_info.py` | `run()`：条件满足时 **`provide` → `Buffer`**；否则返回 **`JobInfo`**（部分字段 **`None`** 表示跳过） |
 | `jobs/security_info/update_stock_info.py` | `run()`：同上，目标表 **`stock_info`** |
 | `jobs/daily_trade_data/update_etf_daily_trade_data.py` | 日线：分批 **`provide`** → **`Buffer.append` / `flush`**；**`JobInfo`** 语义同 **`docs/Jobs.md`** |
-| `jobs/adjustment_factor/update_adjustment_factor.py` | 复权因子：**`provide`** → **`Buffer.append` / `flush`**；异常语义与日线 job 一致，返回 **`JobInfo`** |
+| `jobs/adjustment_factor/update_etf_adjustment_factor.py` | ETF 复权因子：**`provide`** → **`Buffer.append` / `flush`**；异常语义与日线 job 一致，返回 **`JobInfo`** |
 | `jobs/minutely_trade_data/update_minutely_trade_data_morning.py` | 分钟（早盘循环）；**`JobInfo`** 同上 |
 | `jobs/minutely_trade_data/update_minutely_trade_data_afternoon.py` | 分钟（午盘循环）；**`JobInfo`** 同上 |
 | `exceptions/email_error.py` | `EmailError`、`EmailSendError`、`EnvVarEmptyError` |
