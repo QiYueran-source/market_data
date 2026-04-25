@@ -17,8 +17,8 @@ DB_NAME = _adjustment_factor_query.ADJUSTMENT_FACTOR_DB_NAME
 TABLE_NAME = 'etf_adjustment_factor'
 
 # 列
-COLUMNS_LITERAL = Literal['code', 'trade_date', 'pre_adjustment_factor', 'post_adjustment_factor']
-ALL_COLUMNS = ('code', 'trade_date', 'pre_adjustment_factor', 'post_adjustment_factor')
+COLUMNS_LITERAL = Literal['code', 'trade_date', 'adjustment_factor']
+ALL_COLUMNS = ('code', 'trade_date', 'adjustment_factor')
 
 def _get_etf_code_set() -> set[str]:
     return set(etf_info.get_etf_list())

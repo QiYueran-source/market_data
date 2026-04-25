@@ -43,7 +43,7 @@ def get_etf_daily_trade_data(
         - start_date: str | dt.date 开始日期
         - end_date: str | dt.date 结束日期
         - columns: List[COLUMNS_LITERAL] | 'all' 列名，'all'表示所有列
-        - adjustment_factor: Literal['none', 'pre', 'post'] 复权因子，当前仅支持 'none' 与 'post'
+        - adjustment_factor: Literal['none', 'pre', 'post'] 复权模式
           复权因子缺失时返回NaN（不再默认填充1.0）
 
     - 返回
@@ -84,8 +84,6 @@ def get_etf_daily_trade_data(
     # 复权参数
     if adjustment_factor not in ('none', 'pre', 'post'):
         raise ValueError("adjustment_factor必须是'none'、'pre'或'post'")
-    if adjustment_factor == 'pre':
-        raise ValueError("当前不支持前复权，请使用 adjustment_factor='post' 或 'none'")
 
     # 列参数
     # 重要修复：无论用户指定什么columns，内部查询时必须包含 code 和 trade_date（用于后续复权merge）
@@ -117,7 +115,7 @@ def get_etf_daily_trade_data(
                 return df[final_cols]
         return df
 
-    factor_column = 'post_adjustment_factor'
+    factor_column = 'adjustment_factor'
     factor_df = etf_adjustment_factor.get_etf_adjustment_factor(
         codes=codes,
         start_date=start_date,
@@ -138,28 +136,47 @@ def get_etf_daily_trade_data(
     merged[factor_column] = pd.to_numeric(
         merged[factor_column], errors='coerce'
     )
-    # 复权因子缺失时，对应的可调整价格字段也设为NaN
+    # 以查询区间内每个 code 的首/末因子作为锚点计算复权比例
+    factor_sorted = factor_df.sort_values(['code', 'trade_date']).copy()
+    factor_sorted[factor_column] = pd.to_numeric(
+        factor_sorted[factor_column], errors='coerce'
+    )
+    anchors = factor_sorted.groupby('code', as_index=False).agg(
+        factor_start=(factor_column, 'first'),
+        factor_end=(factor_column, 'last')
+    )
+    merged = merged.merge(anchors, on='code', how='left')
+
+    ratio_column = '_adjustment_ratio'
+    if adjustment_factor == 'pre':
+        merged[ratio_column] = merged[factor_column] / merged['factor_end']
+    else:
+        merged[ratio_column] = merged[factor_column] / merged['factor_start']
+    merged[ratio_column] = merged[ratio_column].replace([np.inf, -np.inf], np.nan)
 
     # 先对所有可调整列做数值转换
     for col in ADJUSTABLE_COLUMNS:
         if col in merged.columns:
             merged[col] = pd.to_numeric(merged[col], errors='coerce')
 
-    # 对有复权因子的行进行调整
-    mask_has_factor = merged[factor_column].notna()
+    # 对有复权比例的行进行调整
+    mask_has_ratio = merged[ratio_column].notna()
     for col in ADJUSTABLE_COLUMNS:
         if col in merged.columns:
-            merged.loc[mask_has_factor, col] = (
-                merged.loc[mask_has_factor, col] * merged.loc[mask_has_factor, factor_column]
+            merged.loc[mask_has_ratio, col] = (
+                merged.loc[mask_has_ratio, col] * merged.loc[mask_has_ratio, ratio_column]
             )
 
-    # 对缺失复权因子的行，将可调整的价格字段设为NaN
-    mask_no_factor = merged[factor_column].isna()
+    # 对缺失复权比例的行，将可调整的价格字段设为NaN
+    mask_no_ratio = merged[ratio_column].isna()
     for col in ADJUSTABLE_COLUMNS:
         if col in merged.columns:
-            merged.loc[mask_no_factor, col] = np.nan
+            merged.loc[mask_no_ratio, col] = np.nan
 
-    merged.drop(columns=[factor_column], inplace=True)
+    merged.drop(
+        columns=[factor_column, 'factor_start', 'factor_end', ratio_column],
+        inplace=True
+    )
     df = merged
     return df
 

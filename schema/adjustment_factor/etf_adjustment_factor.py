@@ -10,7 +10,6 @@ ETF_ADJUSTMENT_FACTOR_SCHEMA = TableSchema(
     schema=[
         col('code', np.str_, 'TEXT', True),
         col('trade_date', np.str_, 'TEXT', True),
-        col('pre_adjustment_factor', np.float64, 'REAL', False),
-        col('post_adjustment_factor', np.float64, 'REAL', False),
+        col('adjustment_factor', np.float64, 'REAL', False),
     ]
 )

@@ -2,7 +2,7 @@
 ETF分钟线数据API  
 - get_etf_table_list(): 获取有分钟线数据的ETF列表
 - get_etf_list(): 获取ETF列表
-- get_etf_minutely_trade_data(): 获取ETF分钟线数据（复权使用 post_adjustment_factor）
+- get_etf_minutely_trade_data(): 获取ETF分钟线数据
 
 支持ETF：
 - 51xxxx (上证)
@@ -77,14 +77,15 @@ def _apply_adjustment(
     start_date: dt.date,
     end_date: dt.date,
     adjustable_columns: tuple[str, ...],
+    adjustment_mode: Literal['pre', 'post'],
 ) -> pd.DataFrame:
-    """应用复权因子（当前使用 post_adjustment_factor，因为数据库中实际存储的是后复权因子）。
+    """应用复权因子（使用统一 adjustment_factor 列）。
     复权因子缺失时保持NaN，不再默认填充1.0。
     """
     if df.empty:
         return df
 
-    factor_column = 'post_adjustment_factor'
+    factor_column = 'adjustment_factor'
     factor_df = etf_adjustment_factor.get_etf_adjustment_factor(
         codes=codes,
         start_date=start_date,
@@ -107,28 +108,56 @@ def _apply_adjustment(
     merged[factor_column] = pd.to_numeric(
         merged[factor_column], errors='coerce'
     )
-    # 复权因子缺失时，对应的可调整价格字段也设为NaN
+    # 以查询区间内每个 code 的首/末因子作为锚点计算复权比例
+    if 'code' in factor_df.columns:
+        factor_sorted = factor_df.sort_values(['code', 'trade_date']).copy()
+        anchors = factor_sorted.groupby('code', as_index=False).agg(
+            factor_start=(factor_column, 'first'),
+            factor_end=(factor_column, 'last')
+        )
+        if 'code' in merged.columns:
+            merged = merged.merge(anchors, on='code', how='left')
+        else:
+            # 分钟线表默认不含 code 列，单 code 查询场景下使用首行锚点
+            factor_start = anchors['factor_start'].iloc[0] if not anchors.empty else np.nan
+            factor_end = anchors['factor_end'].iloc[0] if not anchors.empty else np.nan
+            merged['factor_start'] = factor_start
+            merged['factor_end'] = factor_end
+    else:
+        merged['factor_start'] = np.nan
+        merged['factor_end'] = np.nan
+
+    ratio_column = '_adjustment_ratio'
+    if adjustment_mode == 'pre':
+        merged[ratio_column] = merged[factor_column] / merged['factor_end']
+    else:
+        merged[ratio_column] = merged[factor_column] / merged['factor_start']
+    merged[ratio_column] = merged[ratio_column].replace([np.inf, -np.inf], np.nan)
 
     # 先对所有可调整列做数值转换
     for col in adjustable_columns:
         if col in merged.columns:
             merged[col] = pd.to_numeric(merged[col], errors='coerce')
 
-    # 对有复权因子的行进行调整
-    mask_has_factor = merged[factor_column].notna()
+    # 对有复权比例的行进行调整
+    mask_has_ratio = merged[ratio_column].notna()
     for col in adjustable_columns:
         if col in merged.columns:
-            merged.loc[mask_has_factor, col] = (
-                merged.loc[mask_has_factor, col] * merged.loc[mask_has_factor, factor_column]
+            merged.loc[mask_has_ratio, col] = (
+                merged.loc[mask_has_ratio, col] * merged.loc[mask_has_ratio, ratio_column]
             )
 
-    # 对缺失复权因子的行，将可调整的价格字段设为NaN
-    mask_no_factor = merged[factor_column].isna()
+    # 对缺失复权比例的行，将可调整的价格字段设为NaN
+    mask_no_ratio = merged[ratio_column].isna()
     for col in adjustable_columns:
         if col in merged.columns:
-            merged.loc[mask_no_factor, col] = np.nan
+            merged.loc[mask_no_ratio, col] = np.nan
 
-    merged.drop(columns=[factor_column, 'trade_date'], inplace=True, errors='ignore')
+    merged.drop(
+        columns=[factor_column, 'factor_start', 'factor_end', ratio_column, 'trade_date'],
+        inplace=True,
+        errors='ignore'
+    )
     return merged
 
 
@@ -147,8 +176,7 @@ def get_etf_minutely_trade_data(
         - start_date: str | dt.date 开始日期 (00:00:00)
         - end_date: str | dt.date 结束日期 (23:59:59)
         - columns: List[COLUMNS_LITERAL] | 'all' 列名，'all'表示所有列
-        - adjustment_factor: Literal['none', 'pre', 'post'] 复权因子
-          当前仅支持 'none' 与 'post'（复权因子表中实际存储的是 post_adjustment_factor）
+        - adjustment_factor: Literal['none', 'pre', 'post'] 复权模式
           复权因子缺失时返回NaN（不再默认填充1.0）
 
     - 返回
@@ -193,11 +221,6 @@ def get_etf_minutely_trade_data(
     # 复权参数
     if adjustment_factor not in ('none', 'pre', 'post'):
         raise ValueError("adjustment_factor必须是'none'、'pre'或'post'")
-    if adjustment_factor == 'pre':
-        raise ValueError(
-            "当前复权因子表中存储的是后复权因子(post_adjustment_factor)，"
-            "请使用 adjustment_factor='post' 或 'none'"
-        )
 
     # 列参数
     # 分钟线表结构特殊：每个code对应一张独立的表 (minutely_trade_data_{code})
@@ -236,18 +259,26 @@ def get_etf_minutely_trade_data(
             df = df.drop(columns=['trade_datetime'])
         return df
 
-    # 应用复权（当前使用 post_adjustment_factor）
+    # 应用复权（使用 adjustment_factor + 区间锚点）
     # 注意：_apply_adjustment 中会根据 trade_datetime 生成 trade_date 用于和因子表关联
     df = _apply_adjustment(
         df=df,
         codes=[code],
         start_date=start_date,
         end_date=end_date,
-        adjustable_columns=ADJUSTABLE_COLUMNS
+        adjustable_columns=ADJUSTABLE_COLUMNS,
+        adjustment_mode=adjustment_factor
     )
 
     # 恢复 trade_datetime 格式
     if 'trade_datetime' in df.columns:
         df['trade_datetime'] = pd.to_datetime(df['trade_datetime']).dt.strftime('%Y-%m-%d %H:%M:%S')
 
+    # 统一输出列：复权流程可能在 merge 时带入额外列（如 code），返回前按用户请求收敛
+    if columns == 'all':
+        return df[[col for col in ALL_COLUMNS if col in df.columns]]
+
+    desired_cols = [col for col in columns if col in df.columns]
+    if desired_cols:
+        return df[desired_cols]
     return df

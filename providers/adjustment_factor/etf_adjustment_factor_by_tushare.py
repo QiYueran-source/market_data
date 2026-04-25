@@ -9,7 +9,7 @@ API: pro.fund_adj
 返回: pandas.DataFrame
     - ts_code: str
     - trade_date: str
-    - post_adjustment_factor: float
+    - adjustment_factor: float
 
 '''
 # 库
@@ -132,15 +132,15 @@ def fetch(
             {
                 'ts_code': 'code',
                 'trade_date': 'trade_date',
-                'adj_factor': 'post_adjustment_factor',
+                'adj_factor': 'adjustment_factor',
             },
             axis=1,
             inplace=True
         )
         df['code'] = df['code'].astype(str)
         df['trade_date'] = df['trade_date'].astype(str)
-        df['post_adjustment_factor'] = pd.to_numeric(
-            df['post_adjustment_factor'], errors='raise'
+        df['adjustment_factor'] = pd.to_numeric(
+            df['adjustment_factor'], errors='raise'
         ).astype('float64')
     except (ValueError, TypeError, KeyError) as e:
         raise TushareETFAdjustmentDataFormatError(
@@ -180,16 +180,16 @@ def _handle_error(
 
     latest_df = etf_adjustment_factor.get_latest_etf_adjustment_factor(
         codes=codes,
-        columns=['code', 'trade_date', 'post_adjustment_factor']
+        columns=['code', 'trade_date', 'adjustment_factor']
     )
     if latest_df.empty:
         raise ValueError('本地最新复权因子为空，无法兜底')
 
     latest_df['trade_date'] = target_date.strftime('%Y-%m-%d')
-    latest_df['post_adjustment_factor'] = pd.to_numeric(
-        latest_df['post_adjustment_factor'], errors='coerce'
+    latest_df['adjustment_factor'] = pd.to_numeric(
+        latest_df['adjustment_factor'], errors='coerce'
     ).fillna(0.0)
-    latest_df = latest_df[['code', 'trade_date', 'post_adjustment_factor']]
+    latest_df = latest_df[['code', 'trade_date', 'adjustment_factor']]
     return latest_df.reset_index(drop=True)
 
 def fetch_and_clean(
@@ -206,7 +206,7 @@ def fetch_and_clean(
         {
             'code': code_list,
             'trade_date': [dt.date.today().strftime('%Y-%m-%d')] * len(code_list),
-            'post_adjustment_factor': [0.0] * len(code_list),
+            'adjustment_factor': [0.0] * len(code_list),
         }
     )
 

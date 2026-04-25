@@ -126,12 +126,12 @@ Provider（mairui）容错策略：仅 `p/cje/v/t` 为必填字段；其余字�
 #### etf_adjustment_factor表  
 
 该表通过 TuShare API（`pro.fund_adj`）获取，按 `code`、`trade_date` 存储 ETF 复权因子。
+说明：当前口径统一存储单列 `adjustment_factor`；`qfq/hfq` 属于价格复权计算方式，不在该表拆分为两套因子字段。
 Provider（tushare）在拉取失败或校验失败时会走兜底数据路径，并将原因记录到 `fallback_records`；最终写库仍以 `schema/adjustment_factor/etf_adjustment_factor.py` 的字段定义为准。
 
 | 字段名 | 类型 | 注释 | 主键 | 最终兜底值 |
 | ------ | ---- | ---- | ---- | ------ |
 | code | TEXT | ETF代码，如 159718 (无后缀) | True | 888888 |
 | trade_date | TEXT | 交易时间，格式为yyyy-mm-dd | True | 当前日期 |
-| pre_adjustment_factor | REAL | 前复权因子 | False | 0.0 |
-| post_adjustment_factor | REAL | 后复权因子 | False | 0.0 |
+| adjustment_factor | REAL | 复权因子 | False | 0.0 |
 

@@ -180,9 +180,9 @@ Exception
 - 第一段 `try` 调用 `fetch()`；当出现  
   `TushareETFAdjustmentFactorError` **或** `TushareETFAdjustmentDataFormatError` 时：
   - 先 `logger.exception`；
-  - 再调用 `_handle_error(codes, end_date)`，用本地 `db.api.adjustment_factor.etf_adjustment_factor` 中「目标日前最近可用日」的 `pre_adjustment_factor` 兜底，并将 `trade_date` 重写为目标日；
+  - 再调用 `_handle_error(codes, end_date)`，用本地 `db.api.adjustment_factor.etf_adjustment_factor` 中「目标日前最近可用日」的 `adjustment_factor` 兜底，并将 `trade_date` 重写为目标日；
   - 成功则 `records['FETCH_FAILED_USE_ORIGINAL_TABLE'] += 1`。
-- 若 `_handle_error()` 也失败，则降级到 `final_fallback_df`（`code=888888`，`pre_adjustment_factor=0.0`），并记 `records['FETCH_FAIL_USE_CODE_888888_TODAY'] += 1`。
+- 若 `_handle_error()` 也失败，则降级到 `final_fallback_df`（`code=888888`，`adjustment_factor=0.0`），并记 `records['FETCH_FAIL_USE_CODE_888888_TODAY'] += 1`。
 - 出口前 `validate(..., ETF_ADJUSTMENT_FACTOR_SCHEMA)` 失败时再降级到 `final_fallback_df`，并记 `records['VALIDATE_FAIL_USE_CODE_888888_TODAY'] += 1`。
 
 ## 分钟交易数据（minutely_trade_data）常见异常与解读
