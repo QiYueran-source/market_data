@@ -60,6 +60,11 @@ from exceptions.api_error.tushare_error import (
     TushareTokenError,
 )
 
+def _is_quota_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    keywords = ('quota', 'limit', '频率', '限额', '权限', '每分钟最多访问')
+    return any(k in message for k in keywords)
+
 def normalize_trade_date(value: object) -> str | None:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
@@ -180,6 +185,8 @@ def fetch(
         )
     # pro_bar没有管理超额的异常
     except Exception as e:
+        if _is_quota_error(e):
+            raise TushareQuotaExhaustedError(f'TuShare pro_bar 请求超限: {code}: {e}') from e
         raise TushareStockDailyProBarError(f'TuShare pro_bar 失败: {code}: {e}') from e
 
     if df is None or df.empty:

@@ -75,6 +75,11 @@ def _get_pro() -> Any:
             raise TushareProClientError(f'设置TuShare API Token失败: {e}') from e
     return _pro
 
+def _is_quota_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    keywords = ('quota', 'limit', '频率', '限额', '权限', '每分钟最多访问')
+    return any(k in message for k in keywords)
+
 # 获取ETF复权因子
 @retry((TushareETFAdjustmentFactorError, TushareProClientError), retry_delay=60)
 @limit('tushare')
@@ -118,6 +123,8 @@ def fetch(
         end_date_format = end_date.strftime('%Y%m%d')
         df = pro.fund_adj(ts_code=codes, start_date=start_date_format, end_date=end_date_format)
     except Exception as e:
+        if _is_quota_error(e):
+            raise TushareQuotaExhaustedError(f'ETF复权因子请求超限: {e}') from e
         raise TushareETFAdjustmentFactorError(f'获取ETF复权因子失败: {e}')
     
     if df.empty:
