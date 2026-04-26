@@ -183,7 +183,7 @@ def fetch(
             freq='D',
             adjfactor=False,
         )
-    # pro_bar没有管理超额的异常
+    # pro_bar没有管理超额的异常，自定义一个
     except Exception as e:
         if _is_quota_error(e):
             raise TushareQuotaExhaustedError(f'TuShare pro_bar 请求超限: {code}: {e}') from e

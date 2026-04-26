@@ -6,11 +6,14 @@
 '''
 # 库
 import datetime as dt
+import time
 from collections import Counter
+import pandas as pd
 
 # 工具
 from models.job_info import JobInfo
 from db.api.trade_calendar import stock_api_trade_calendar
+from db.api.security_info import stock_info
 
 # 表结构
 from schema.adjustment_factor import STOCK_ADJUSTMENT_FACTOR_SCHEMA
@@ -35,6 +38,9 @@ from exceptions.valid_error import ValidError
 
 # 条件
 CONDITION = stock_api_trade_calendar.is_trade_date(dt.date.today())
+BATCH_SIZE = 50
+BATCH_SLEEP_SECONDS = 60.0
+MAX_WORKERS = 50
 
 # 运行
 def run()->JobInfo:
@@ -68,9 +74,33 @@ def run()->JobInfo:
     
     # 条件满足，开始更新
     try:
-        df, fallback_records, fetch_times = provide()
-        total_fallback_records.update(fallback_records)
-        total_fetch_times += fetch_times
+        all_codes = stock_info.get_latest_stock_list()
+        frames = []
+        for idx in range(0, len(all_codes), BATCH_SIZE):
+            batch_codes = all_codes[idx:idx + BATCH_SIZE]
+            batch_df, fallback_records, fetch_times = provide(
+                codes=batch_codes,
+                max_workers=MAX_WORKERS,
+            )
+            if batch_df is not None and not batch_df.empty:
+                frames.append(batch_df)
+            total_fallback_records.update(fallback_records)
+            total_fetch_times += fetch_times
+
+            has_next_batch = idx + BATCH_SIZE < len(all_codes)
+            if has_next_batch and BATCH_SLEEP_SECONDS > 0:
+                logger.info(
+                    '股票复权因子批次完成，休眠 %.1f 秒后继续，processed=%s/%s',
+                    BATCH_SLEEP_SECONDS,
+                    idx + len(batch_codes),
+                    len(all_codes),
+                )
+                time.sleep(BATCH_SLEEP_SECONDS)
+
+        if frames:
+            df = pd.concat(frames, ignore_index=True)
+        else:
+            df = pd.DataFrame(columns=STOCK_ADJUSTMENT_FACTOR_SCHEMA.cols)
     except Exception as e:
         logger.exception('未预期错误')
         success = False
