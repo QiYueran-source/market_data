@@ -20,6 +20,7 @@ import tushare as ts
 from dotenv import load_dotenv
 
 from db.api.security_info import stock_info
+from db.api.adjustment_factor import stock_adjustment_factor
 from providers.provider_utils import limit, retry
 from models.table_schema import validate
 from schema.adjustment_factor import STOCK_ADJUSTMENT_FACTOR_SCHEMA
@@ -40,6 +41,7 @@ STOCK_LIST = stock_info.get_latest_stock_list()
 
 logger = get_logger('stock_adjustment_factor_by_tushare')
 
+_FALLBACK_KEY_ORIGINAL_TABLE = 'FETCH_FAILED_USE_ORIGINAL_TABLE'
 _FALLBACK_KEY_FINAL = 'FETCH_FAIL_USE_CODE_888888_TODAY'
 _FALLBACK_KEY_VALIDATE = 'VALIDATE_FAIL_USE_CODE_888888_TODAY'
 
@@ -144,6 +146,38 @@ def fetch(
     return df.reset_index(drop=True)
 
 
+def _handle_error(
+    code: str,
+    end_date: dt.date = dt.date.today(),
+) -> pd.DataFrame:
+    '''
+    处理错误：用「本地已落库的最近一日」复权因子兜底目标日（与 ETF 侧语义一致）。
+    '''
+    target_date = end_date if isinstance(end_date, dt.date) else dt.date.today()
+    raw = str(code).strip()
+    if not raw:
+        raise ValueError('code不能为空')
+
+    latest_df = stock_adjustment_factor.get_latest_stock_adjustment_factor(
+        codes=raw,
+        columns=['code', 'trade_date', 'adjustment_factor'],
+    )
+    if latest_df.empty:
+        raise ValueError('本地最新股票复权因子为空，无法兜底')
+
+    latest_df = latest_df[latest_df['code'].astype(str).str.strip() == raw]
+    if latest_df.empty:
+        raise ValueError(f'本地无该 code 复权因子，无法兜底: {raw}')
+
+    latest_df = latest_df.copy()
+    latest_df['trade_date'] = target_date.strftime('%Y-%m-%d')
+    latest_df['adjustment_factor'] = pd.to_numeric(
+        latest_df['adjustment_factor'], errors='coerce'
+    ).fillna(0.0)
+    latest_df = latest_df[['code', 'trade_date', 'adjustment_factor']]
+    return latest_df.reset_index(drop=True)
+
+
 def fetch_and_clean(
     code: str,
     start_date: dt.date = dt.date.today(),
@@ -152,7 +186,8 @@ def fetch_and_clean(
     '''
     获取股票复权因子并清洗。
 
-    当前阶段不启用原表回填兜底；fetch 或 validate 失败时直接使用最终兜底数据。
+    fetch 失败时先尝试用本地 stock_adjustment_factor 表最新一行兜底目标日；
+    仍失败则使用单 code + adjustment_factor=0 的最终兜底。
     '''
     records = Counter()
     final_fallback_df = pd.DataFrame(
@@ -174,8 +209,13 @@ def fetch_and_clean(
         TushareProClientError,
     ) as e:
         logger.exception(f'获取股票复权因子并清洗失败(code={code}): {e}')
-        df = final_fallback_df
-        records[_FALLBACK_KEY_FINAL] += 1
+        try:
+            df = _handle_error(code=code, end_date=end_date)
+            records[_FALLBACK_KEY_ORIGINAL_TABLE] += 1
+        except Exception as e2:
+            logger.exception(f'股票复权因子本地表兜底失败(code={code}): {e2}')
+            df = final_fallback_df
+            records[_FALLBACK_KEY_FINAL] += 1
 
     try:
         validate(df, STOCK_ADJUSTMENT_FACTOR_SCHEMA)
