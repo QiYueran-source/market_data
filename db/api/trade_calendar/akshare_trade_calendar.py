@@ -85,3 +85,7 @@ def get_trade_date_list(
     if df.empty or 'calendar_date' not in df.columns or 'is_open' not in df.columns:
         return []
     open_rows = df.loc[df['is_open'] == 1, 'calendar_date']
+    if open_rows.empty:
+        return []
+    dates = pd.to_datetime(open_rows, errors='coerce').dropna().dt.date
+    return dates.tolist()
