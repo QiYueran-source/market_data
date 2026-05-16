@@ -2,6 +2,7 @@
 股票日线交易数据 API
 - get_stock_daily_trade_data(): 获取股票日线交易数据（可选前/后复权，口径与 ETF 日线一致）
 - get_latest_stock_daily_trade_data(): 每 code 最新一行；复权时与日线接口同一锚点算法（见参数 adjust_anchor_start_date）
+- agg_stock_daily_trade_data(): 将股票日线聚合为周/月/季/年或自定义天数频率（口径与 ETF agg_daily_trade_data 一致）
 - get_max_trade_dates_for_codes(): 查询各 code 在库中已有最大 trade_date（用于增量拉取）
 '''
 from __future__ import annotations
@@ -306,3 +307,102 @@ def get_latest_stock_daily_trade_data(
         if final_cols:
             return df[final_cols]
     return df
+
+
+def agg_stock_daily_trade_data(
+    codes: str | List[str],
+    start_date: str | dt.date | dt.datetime | pd.Timestamp = dt.date(2020, 1, 1),
+    end_date: str | dt.date | dt.datetime | pd.Timestamp | None = None,
+    freq: Literal['weekly', 'monthly', 'quarterly', 'half_yearly', 'yearly'] | int = 'weekly',
+    columns: List[COLUMNS_LITERAL] | Literal['all'] = 'all',
+    adjustment_factor: Literal['none', 'pre', 'post'] = 'post',
+) -> pd.DataFrame:
+    '''
+    将股票日线数据聚合为指定频率（周、月、季、半年、年，或自定义天数）。
+
+    先按 adjustment_factor 取日线并复权，再分组聚合；OHLC 为周期内 first/max/min/last，
+    volume/amount 为 sum，其余列为周期内最后一个交易日的值。
+
+    - freq: 字符串频率，或 int 表示每 N 个日历日为一组（与 ETF 实现一致，非严格 N 个交易日）
+    - adjustment_factor: 默认 'post'，与 ETF agg_daily_trade_data 一致
+    '''
+    required_for_agg = {
+        'trade_date', 'code', 'open', 'high', 'low', 'close', 'volume', 'amount',
+    }
+    if columns != 'all':
+        internal_columns: List[COLUMNS_LITERAL] | Literal['all'] = list(
+            set(columns) | required_for_agg  # type: ignore[arg-type]
+        )
+    else:
+        internal_columns = 'all'
+
+    df = get_stock_daily_trade_data(
+        codes=codes,
+        start_date=start_date,
+        end_date=end_date,
+        columns=internal_columns,
+        adjustment_factor=adjustment_factor,
+    )
+
+    if df.empty:
+        return df
+
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
+    df = df.sort_values(['code', 'trade_date'])
+
+    if isinstance(freq, int) and freq > 0:
+        df['group'] = (df['trade_date'] - df['trade_date'].min()).dt.days // freq
+        group_key = 'group'
+    else:
+        freq_map = {
+            'weekly': 'W',
+            'monthly': 'M',
+            'quarterly': 'Q',
+            'half_yearly': '2Q',
+            'yearly': 'Y',
+        }
+        period_freq = freq_map.get(freq, 'W')  # type: ignore[arg-type]
+        df['group'] = df['trade_date'].dt.to_period(period_freq)
+        group_key = 'group'
+
+    agg_dict = {
+        'open': 'first',
+        'high': 'max',
+        'low': 'min',
+        'close': 'last',
+        'volume': 'sum',
+        'amount': 'sum',
+    }
+    other_cols = [
+        col
+        for col in df.columns
+        if col
+        not in [
+            'trade_date',
+            'code',
+            'group',
+            'open',
+            'high',
+            'low',
+            'close',
+            'volume',
+            'amount',
+        ]
+    ]
+    for col in other_cols:
+        agg_dict[col] = 'last'
+
+    aggregated = df.groupby(['code', group_key]).agg(agg_dict).reset_index()
+    aggregated['trade_date'] = df.groupby(['code', group_key])['trade_date'].last().values
+    aggregated = aggregated.sort_values(['code', 'trade_date']).reset_index(drop=True)
+
+    if 'group' in aggregated.columns:
+        aggregated = aggregated.drop(columns=['group'])
+
+    if columns != 'all' and isinstance(columns, list):
+        desired_cols = ['trade_date', 'code'] + [
+            col for col in columns if col in aggregated.columns
+        ]
+        aggregated = aggregated[desired_cols]
+
+    return aggregated
